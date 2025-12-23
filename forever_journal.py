@@ -164,7 +164,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             # Info Box at Bottom Left
             now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             f.write(r"\begin{tikzpicture}[remember picture, overlay]" + "\n")
-            f.write(r"  \node[anchor=south west, xshift=1cm, yshift=1cm] at (current page.south west) {" + "\n")
+            f.write(rf"  \node[anchor=south west, xshift={TARGET_MARGIN_INNER}mm, yshift=1cm] at (current page.south west) {{" + "\n")
             f.write(r"    \begin{minipage}{10cm}" + "\n")
             f.write(r"      \small \ttfamily" + "\n")
             f.write(rf"      Start Year: {START_YEAR} \\" + "\n")
@@ -408,7 +408,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
             
             # Reset geometry to maximize space for code (this forces a new page)
-            f.write(r"\newgeometry{top=10mm, bottom=10mm, left=10mm, right=10mm}" + "\n")
+            # Respect inner margin for binding/hole punches
+            f.write(rf"\newgeometry{{top=10mm, bottom=10mm, inner={TARGET_MARGIN_INNER}mm, outer=10mm}}" + "\n")
             f.write(r"\twocolumn" + "\n")
             f.write(r"\section*{Source Code: forever\_journal.py}" + "\n")
             
