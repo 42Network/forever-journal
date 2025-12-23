@@ -72,7 +72,7 @@ def get_day_of_week(year, month, day):
         return ""
 
 
-def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False, include_source=False):
+def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False, include_source=False, toc_enabled=False):
     """
     Generates the LaTeX source file for the journal.
 
@@ -82,6 +82,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         align_mode (str): "mirrored" (outer alignment) or "left" (standard alignment).
         no_compile (bool): If True, skips automatic PDF compilation.
         include_source (bool): If True, appends the script source code to the PDF.
+        toc_enabled (bool): If True, includes a Table of Contents.
     """
     end_year = START_YEAR + NUM_YEARS - 1
     output_base = f"forever_journal_{START_YEAR}_{end_year}"
@@ -180,11 +181,40 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         # --- COVER PAGE ---
         if should_write_page(1):
             f.write(r"\begin{titlepage}" + "\n")
+            f.write(r"\label{sec:title}" + "\n")
             f.write(r"\centering" + "\n")
             f.write(r"\vspace*{5cm}" + "\n")
             f.write(r"{\Huge \textbf{Forever Journal} \par}" + "\n")
             f.write(r"\vspace{2cm}" + "\n")
             f.write(rf"{{\Large {START_YEAR} -- {START_YEAR + NUM_YEARS - 1} \par}}" + "\n")
+            
+            # ToC Box
+            if toc_enabled:
+                f.write(r"\begin{tikzpicture}[remember picture, overlay]" + "\n")
+                f.write(rf"  \node[anchor=south east, xshift=-{TARGET_MARGIN_OUTER}mm, yshift={TARGET_MARGIN_BOTTOM}mm] at (current page.south east) {{" + "\n")
+                f.write(r"    \begin{minipage}{7cm}" + "\n")
+                f.write(r"      \textbf{Table of Contents} \par \vspace{2mm}" + "\n")
+                f.write(r"      Title Page \dotfill \pageref{sec:title} \\" + "\n")
+                for m in range(1, 13):
+                    m_name = calendar.month_name[m]
+                    # In test mode, only show months that are generated (Jan & Feb)
+                    if test_mode and m > 2:
+                        f.write(rf"      {m_name} \dotfill (Skipped) \\" + "\n")
+                    else:
+                        f.write(rf"      {m_name} \dotfill \pageref{{sec:month_{m}}} \\" + "\n")
+                
+                # Continuation pages are not generated in test mode
+                if not test_mode:
+                    f.write(r"      Continuation Pages \dotfill \pageref{sec:continuation} \\" + "\n")
+                else:
+                    f.write(r"      Continuation Pages \dotfill (Skipped) \\" + "\n")
+                    
+                if include_source:
+                    f.write(r"      Source Code \dotfill \pageref{sec:source} \\" + "\n")
+                f.write(r"    \end{minipage}" + "\n")
+                f.write(r"  };" + "\n")
+                f.write(r"\end{tikzpicture}" + "\n")
+            
             f.write(r"\vfill" + "\n")
 
             # Info Box at Bottom Left
@@ -243,6 +273,10 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             for page_idx in range(2):
                 if should_write_page(page_num):
                     f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
+                    
+                    # Add Label for ToC (Only on first page of summary)
+                    if page_idx == 0:
+                        f.write(rf"\label{{sec:month_{month}}}" + "\n")
                     
                     # Determine year range for this page
                     if page_idx == 0: # Left Page
@@ -510,9 +544,12 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
         num_lines_cont = int(CONT_USABLE_H / line_spacing)
 
-        for _ in range(NUM_CONTINUATION_PAGES):
+        for i in range(NUM_CONTINUATION_PAGES):
             if should_write_page(page_num):
                 f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
+                
+                if i == 0:
+                    f.write(r"\label{sec:continuation}" + "\n")
 
                 # Header (Empty, just spacing to match main pages)
                 f.write(rf"\begin{{minipage}}[t][{HEADER_H}mm]{{\textwidth}}")
@@ -552,6 +589,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             # Landscape mode for source code
             f.write(r"\begin{landscape}" + "\n")
             f.write(r"\section*{Source Code: forever\_journal.py}" + "\n")
+            f.write(r"\label{sec:source}" + "\n")
             
             # Configure listings
             f.write(r"\lstset{" + "\n")
@@ -608,7 +646,18 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     "-interaction=nonstopmode", # Don't hang on errors
                     output_tex
                 ]
-                subprocess.run(cmd, check=True)
+                
+                # Run twice to resolve references (ToC page numbers) if ToC is enabled
+                if toc_enabled:
+                    print("Pass 1/2...")
+                    subprocess.run(cmd, check=True)
+                    
+                    print("Pass 2/2 (Resolving references)...")
+                    subprocess.run(cmd, check=True)
+                else:
+                    print("Compiling...")
+                    subprocess.run(cmd, check=True)
+                
                 print(f"Success! PDF generated at: {os.path.join(OUTPUT_DIR, output_base + '.pdf')}")
             except subprocess.CalledProcessError as e:
                 print("Error during PDF compilation.")
@@ -628,6 +677,7 @@ if __name__ == "__main__":
     parser.add_argument("--align", choices=["mirrored", "left"], default="mirrored", help="mirrored = Outer aligned, left = Left aligned")
     parser.add_argument("--no-compile", action="store_true", help="Skip automatic PDF compilation")
     parser.add_argument("--include-source", action="store_true", help="Append source code to the PDF")
+    parser.add_argument("--toc", action="store_true", help="Include Table of Contents (requires 2-pass compilation)")
     args = parser.parse_args()
 
-    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source)
+    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source, toc_enabled=args.toc)
