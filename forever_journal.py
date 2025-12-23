@@ -132,6 +132,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 \usepackage{tikz}
 \usepackage{fancyhdr}
 \usepackage{listings} % For source code listing
+\usepackage{pdflscape} % For landscape pages
+\usepackage{multicol} % For multi-column layout
 
 \pagestyle{fancy}
 \fancyhf{} % clear all headers and footers
@@ -147,6 +149,13 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 \definecolor{bordergray}{gray}{0.3} % Darker border lines
 \definecolor{textgray}{gray}{0.4}   % Date labels
 \definecolor{sundayred}{rgb}{0.8, 0.3, 0.3} % Light red for Sundays
+
+% Code Listing Colors
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\definecolor{framegray}{gray}{0.9}
 
 \begin{document}
 """)
@@ -410,19 +419,27 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             # Reset geometry to maximize space for code (this forces a new page)
             # Respect inner margin for binding/hole punches
             f.write(rf"\newgeometry{{top=10mm, bottom=10mm, inner={TARGET_MARGIN_INNER}mm, outer=10mm}}" + "\n")
-            f.write(r"\twocolumn" + "\n")
+            
+            # Landscape mode for source code
+            f.write(r"\begin{landscape}" + "\n")
             f.write(r"\section*{Source Code: forever\_journal.py}" + "\n")
             
             # Configure listings
             f.write(r"\lstset{" + "\n")
             f.write(r"  language=Python," + "\n")
-            f.write(r"  basicstyle=\tiny\ttfamily," + "\n") # Tiny font to fit ~450 lines
+            f.write(r"  basicstyle=\tiny\ttfamily," + "\n")
+            f.write(r"  keywordstyle=\color{blue}," + "\n")
+            f.write(r"  stringstyle=\color{codepurple}," + "\n")
+            f.write(r"  commentstyle=\color{codegreen}," + "\n")
             f.write(r"  breaklines=true," + "\n")
             f.write(r"  showstringspaces=false," + "\n")
             f.write(r"  numbers=none," + "\n")
-            f.write(r"  frame=single" + "\n")
+            f.write(r"  frame=single," + "\n")
+            f.write(r"  rulecolor=\color{lightgray}" + "\n")
             f.write(r"}" + "\n")
             
+            # 3 Columns
+            f.write(r"\begin{multicols}{3}" + "\n")
             f.write(r"\begin{lstlisting}" + "\n")
             
             # Read and write the source code of this file
@@ -436,6 +453,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             
             # Safe way to write the end tag without breaking the listing
             f.write(r"\end{lst" + "listing}" + "\n")
+            f.write(r"\end{multicols}" + "\n")
+            f.write(r"\end{landscape}" + "\n")
             
         f.write(r"\end{document}")
 
