@@ -92,11 +92,31 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     output_tex = os.path.join(OUTPUT_DIR, f"{output_base}.tex")
 
-    # Test Page Ranges (Inclusive)
-    # 1-4: Title, Jan 1-3
-    # 31-34: Feb/Mar transition
-    # 193-196: Dec/Continuation transition
-    TEST_PAGE_RANGES = [(1, 4), (31, 34), (193, 196)]
+    # Determine Days Per Page
+    DAYS_PER_PAGE = 2 if spread_mode == "4up" else 1
+
+    # Calculate Page Ranges for Test Mode
+    # We want to show:
+    # 1. Title Page (1)
+    # 2. Jan Summary (2-3) + First few Jan days
+    # 3. Feb Summary + First few Feb days
+    
+    # Jan Daily Pages
+    jan_days = 31
+    jan_daily_pages = (jan_days + DAYS_PER_PAGE - 1) // DAYS_PER_PAGE
+    
+    # Start of Feb Summary
+    # Title(1) + JanSum(2) + JanDaily(jan_daily_pages)
+    # Jan starts on page 4. Ends on 3 + jan_daily_pages.
+    last_jan_page = 3 + jan_daily_pages
+    feb_start = last_jan_page + 1
+    if feb_start % 2 != 0: # Must start on Even (Left)
+        feb_start += 1
+        
+    TEST_PAGE_RANGES = [
+        (1, 6), # Title, Jan Summary, Jan Days
+        (feb_start, feb_start + 4) # Feb Summary, Feb Days
+    ]
 
     def should_write_page(p):
         if not test_mode:
@@ -105,9 +125,6 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             if start <= p <= end:
                 return True
         return False
-
-    # Determine Days Per Page
-    DAYS_PER_PAGE = 2 if spread_mode == "4up" else 1
 
     # Column Layout
     COLUMN_GUTTER = 5  # mm
@@ -198,6 +215,114 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
         page_num = 2  # Start on page 2 (Left) after title page
 
+        def generate_month_summary(month, page_num):
+            """Generates a 2-page summary spread for the month."""
+            month_name = calendar.month_name[month]
+            days_in_month = calendar.monthrange(ref_year, month)[1]
+            
+            # Layout Constants
+            ROW_H = 8 # mm
+            HEADER_H = 15 # mm
+            
+            # Calculate column widths
+            # Left page: Day Num + 5 Years
+            # Right page: 5 Years
+            # We use the full text width
+            
+            # Day Number Column Width
+            DAY_NUM_W = 10
+            
+            # Year Column Width
+            # Left Page: (TextWidth - DayNumW) / 5
+            # Right Page: TextWidth / 5 ? Or keep consistent?
+            # Let's keep year columns consistent width across both pages.
+            # So we base it on the Left Page constraint.
+            YEAR_COL_W = (CALC_TEXT_WIDTH - DAY_NUM_W) / 5
+            
+            # Loop for 2 pages (Left/Right)
+            for page_idx in range(2):
+                if should_write_page(page_num):
+                    f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
+                    
+                    # Determine year range for this page
+                    if page_idx == 0: # Left Page
+                        year_range = range(START_YEAR, START_YEAR + 5)
+                        is_left_page = True
+                    else: # Right Page
+                        year_range = range(START_YEAR + 5, START_YEAR + 10)
+                        is_left_page = False
+                    
+                    f.write(r"\begin{center}" + "\n")
+                    f.write(rf"{{\Large \textbf{{{month_name} Summary}}}}" + "\n")
+                    f.write(r"\end{center}" + "\n")
+                    
+                    f.write(r"\vspace{5mm}" + "\n")
+                    
+                    # TikZ Grid
+                    # Height = (days_in_month + 1 header) * ROW_H
+                    grid_h = (days_in_month + 1) * ROW_H
+                    
+                    f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm]" + "\n")
+                    
+                    # Draw Horizontal Lines
+                    # We need lines from index 0 (top) to days_in_month + 1 (bottom)
+                    # Total rows = days_in_month + 1 (header)
+                    # Total lines = days_in_month + 2
+                    w = DAY_NUM_W + 5 * YEAR_COL_W
+                    
+                    for d in range(days_in_month + 2):
+                        y = grid_h - (d * ROW_H)
+                        f.write(rf"\draw[bordergray] (0, {y}) -- ({w}, {y});" + "\n")
+                        
+                    # Draw Vertical Lines
+                    # Left Border
+                    f.write(rf"\draw[bordergray] (0, 0) -- (0, {grid_h});" + "\n")
+                    # Day Num Separator
+                    f.write(rf"\draw[bordergray] ({DAY_NUM_W}, 0) -- ({DAY_NUM_W}, {grid_h});" + "\n")
+                    # Year Columns
+                    for i in range(5):
+                        x = DAY_NUM_W + (i + 1) * YEAR_COL_W
+                        f.write(rf"\draw[bordergray] ({x}, 0) -- ({x}, {grid_h});" + "\n")
+
+                    # --- CONTENT ---
+                    
+                    # 1. Day Numbers (Column 0)
+                    # Rows 1 to days_in_month
+                    for day in range(1, days_in_month + 1):
+                        # Row 0 is Header. Row 1 is Day 1.
+                        # y_top of Row 1 is grid_h - ROW_H
+                        # y_center of Row 1 is grid_h - 1.5 * ROW_H
+                        y_center = grid_h - (day * ROW_H) - (ROW_H / 2)
+                        f.write(rf"\node[anchor=center] at ({DAY_NUM_W/2}, {y_center}) {{\small \textbf{{{day}}}}};" + "\n")
+                        
+                    # 2. Year Headers (Row 0)
+                    header_y = grid_h - (ROW_H / 2)
+                    for i in range(5):
+                        curr_year = year_range[i]
+                        header_x = DAY_NUM_W + (i * YEAR_COL_W) + (YEAR_COL_W / 2)
+                        f.write(rf"\node[anchor=center] at ({header_x}, {header_y}) {{\textbf{{{curr_year}}}}};" + "\n")
+                        
+                    # 3. Day Cells (Rows 1 to days_in_month)
+                    for day in range(1, days_in_month + 1):
+                        row_top_y = grid_h - (day * ROW_H)
+                        
+                        for i in range(5):
+                            curr_year = year_range[i]
+                            col_left_x = DAY_NUM_W + (i * YEAR_COL_W)
+                            
+                            dow = get_day_of_week(curr_year, month, day)[:2]
+                            color_cmd = r"\color{sundayred}" if dow == "Su" and SUNDAYS_RED else ""
+                            
+                            # Top Left Corner
+                            f.write(rf"\node[anchor=north west, inner sep=1pt] at ({col_left_x + 1}, {row_top_y - 1}) {{\tiny {color_cmd} {dow}}};" + "\n")
+
+                    f.write(r"\end{tikzpicture}" + "\n")
+                    f.write(r"\newpage" + "\n")
+                
+                page_num += 1
+            
+            return page_num
+
         # Iterate through months to ensure proper pagination (Start Month on Left Page)
         for month in range(1, 13):
             # Collect days for this month
@@ -215,6 +340,10 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
                     f.write(r"\mbox{} \newpage" + "\n")
                 page_num += 1
+            
+            # --- MONTH SUMMARY SPREAD ---
+            # Insert the 2-page summary before the daily pages
+            page_num = generate_month_summary(month, page_num)
 
             # Iterate through days in chunks
             for i in range(0, len(month_days), DAYS_PER_PAGE):
