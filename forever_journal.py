@@ -72,7 +72,7 @@ def get_day_of_week(year, month, day):
         return ""
 
 
-def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False):
+def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False, include_source=False):
     """
     Generates the LaTeX source file for the journal.
 
@@ -81,6 +81,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         spread_mode (str): "2up" (1 day/page) or "4up" (2 days/page).
         align_mode (str): "mirrored" (outer alignment) or "left" (standard alignment).
         no_compile (bool): If True, skips automatic PDF compilation.
+        include_source (bool): If True, appends the script source code to the PDF.
     """
     end_year = START_YEAR + NUM_YEARS - 1
     output_base = f"forever_journal_{START_YEAR}_{end_year}"
@@ -130,6 +131,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 \usepackage{xcolor}
 \usepackage{tikz}
 \usepackage{fancyhdr}
+\usepackage{listings} % For source code listing
 
 \pagestyle{fancy}
 \fancyhf{} % clear all headers and footers
@@ -255,7 +257,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
                     # Determine if we show month
                     show_month = True
-                    if align_mode == "mirrored" and DAYS_PER_PAGE == 2 and is_inner_col:
+                    if DAYS_PER_PAGE == 2 and is_inner_col:
                         # Generally hide month on inner columns to reduce clutter
                         show_month = False
                         # EXCEPTION: Always show month on the last day of the month
@@ -332,7 +334,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                                 f.write(rf"\draw[guidegray] ({cx}, {y_circle}) circle ({circle_radius});" + "\n")
 
                             # Continuation 'p' prompt
-                            f.write(rf"\node[anchor=base east, inner sep=0, text=textgray] at ({w}-6, 2.5) {{\small $\rightarrow$ \textit{{p}}}};" + "\n")
+                            f.write(rf"\node[anchor=base east, inner sep=0, text=textgray] at ({w}-6, 2.5) {{\small $\vec{{p}}$}};" + "\n")
 
                             for l in range(1, NUM_WRITING_LINES):
                                 y_pos = h - l * line_spacing
@@ -399,6 +401,41 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
             page_num += 1
 
+        # --- SOURCE CODE APPENDIX ---
+        # Self-preservation: Print the source code of this script at the end of the journal.
+        if include_source:
+            # Ensure the page number is correct (continuing from the last logical page)
+            f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
+            
+            # Reset geometry to maximize space for code (this forces a new page)
+            f.write(r"\newgeometry{top=10mm, bottom=10mm, left=10mm, right=10mm}" + "\n")
+            f.write(r"\twocolumn" + "\n")
+            f.write(r"\section*{Source Code: forever\_journal.py}" + "\n")
+            
+            # Configure listings
+            f.write(r"\lstset{" + "\n")
+            f.write(r"  language=Python," + "\n")
+            f.write(r"  basicstyle=\tiny\ttfamily," + "\n") # Tiny font to fit ~450 lines
+            f.write(r"  breaklines=true," + "\n")
+            f.write(r"  showstringspaces=false," + "\n")
+            f.write(r"  numbers=none," + "\n")
+            f.write(r"  frame=single" + "\n")
+            f.write(r"}" + "\n")
+            
+            f.write(r"\begin{lstlisting}" + "\n")
+            
+            # Read and write the source code of this file
+            # We must be careful not to print the end-listing tag literally, or it will break the LaTeX.
+            try:
+                with open(os.path.abspath(__file__), "r") as source_file:
+                    for line in source_file:
+                        f.write(line)
+            except Exception as e:
+                f.write(f"# Error reading source code: {e}")
+            
+            # Safe way to write the end tag without breaking the listing
+            f.write(r"\end{lst" + "listing}" + "\n")
+            
         f.write(r"\end{document}")
 
     print(f"Generated: {output_tex}")
@@ -441,6 +478,7 @@ if __name__ == "__main__":
     parser.add_argument("--spread", choices=["2up", "4up"], default="2up", help="2up = 1 day/page, 4up = 2 days/page")
     parser.add_argument("--align", choices=["mirrored", "left"], default="mirrored", help="mirrored = Outer aligned, left = Left aligned")
     parser.add_argument("--no-compile", action="store_true", help="Skip automatic PDF compilation")
+    parser.add_argument("--include-source", action="store_true", help="Append source code to the PDF")
     args = parser.parse_args()
 
-    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile)
+    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source)
