@@ -43,11 +43,26 @@ Run the script. It will generate the LaTeX file in `output/` and automatically c
 python3 forever_journal.py --spread 4up --align mirrored
 
 # Test Mode (Generates a small subset of pages for testing layout)
+# Captures: Title, Feb Summary, Feb 1-4, Feb 29, YM1, Dec 29-31, Continuation, Source Code.
+# Preserves even/odd page alignment for double-sided printing.
 python3 forever_journal.py --test --spread 4up --align mirrored
 ```
 
 ### 2. Options
 *   `--no-compile`: Skip the automatic PDF compilation step.
+*   `--include-source`: Append the source code of the script to the end of the PDF.
+*   `--toc`: Include a Table of Contents on the Title Page (requires 2-pass compilation).
+
+## Test Mode Requirements
+The `--test` flag generates a representative subset of the journal to verify layout and printing alignment without generating the full 400+ pages.
+*   **Title Page:** Page 1 (Odd).
+*   **February Summary:** 2-page spread (Even/Odd).
+*   **February Start:** Days 1-4 (Even/Odd spread).
+*   **February End:** Day 29 (Leap Year check) + Year/Month Summary (YM1).
+*   **December End:** Days 29-31 (End of Journal).
+*   **Continuation Pages:** First spread (1-2) and Last page (20).
+*   **Source Code:** Full appendix.
+*   **Alignment:** Strictly preserves Even/Odd (Left/Right) page parity for correct double-sided printing.
 *   `--test`: Generate a small test file (12 pages) instead of the full journal.
 
 ### 3. Manual Compilation

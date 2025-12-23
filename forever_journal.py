@@ -96,36 +96,74 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
     # Determine Days Per Page
     DAYS_PER_PAGE = 2 if spread_mode == "4up" else 1
 
-    # Calculate Page Ranges for Test Mode
-    # We want to show:
-    # 1. Title Page (1)
-    # 2. Jan Summary (2-3) + First few Jan days
-    # 3. Feb Summary + First few Feb days
+    # Test Mode Logic
+    # We define a helper to check if content should be generated based on context.
+    # We also track physical pages to ensure parity alignment.
     
-    # Jan Daily Pages
-    jan_days = 31
-    jan_daily_pages = (jan_days + DAYS_PER_PAGE - 1) // DAYS_PER_PAGE
-    
-    # Start of Feb Summary
-    # Title(1) + JanSum(2) + JanDaily(jan_daily_pages)
-    # Jan starts on page 4. Ends on 3 + jan_daily_pages.
-    last_jan_page = 3 + jan_daily_pages
-    feb_start = last_jan_page + 1
-    if feb_start % 2 != 0: # Must start on Even (Left)
-        feb_start += 1
-        
-    TEST_PAGE_RANGES = [
-        (1, 6), # Title, Jan Summary, Jan Days
-        (feb_start, feb_start + 4) # Feb Summary, Feb Days
-    ]
+    # Global counter for physical pages written to the PDF
+    # Initialized to 0. Writing Title Page (Page 1) makes it 1.
+    physical_page_count = 0
 
-    def should_write_page(p):
+    def ensure_parity(logical_page_num):
+        """
+        Inserts a blank filler page if the next physical page in the PDF
+        does not match the even/odd parity of the target logical page number.
+        """
+        nonlocal physical_page_count
+        
+        # Parity: 1 = Odd, 0 = Even
+        target_parity = logical_page_num % 2
+        next_physical_parity = (physical_page_count + 1) % 2
+        
+        if target_parity != next_physical_parity:
+            f.write(r"\mbox{} \newpage" + "\n")
+            physical_page_count += 1
+
+    def is_test_content(section, month=None, day=None, page_idx=None):
         if not test_mode:
             return True
-        for start, end in TEST_PAGE_RANGES:
-            if start <= p <= end:
+            
+        if section == "TITLE":
+            return True
+        
+        if section == "MONTH_SUMMARY":
+            # Only Feb Summary
+            return month == 2
+            
+        if section == "DAILY":
+            if month == 2:
+                # Feb 1-4
+                if day in [1, 2, 3, 4]:
+                    return True
+                # Feb 29 (Leap check)
+                if day == 29:
+                    return True
+            if month == 12:
+                # Dec 29-31
+                if day in [29, 30, 31]:
+                    return True
+            return False
+            
+        if section == "YEAR_MONTH_SUMMARY":
+            # Only the one after Feb (YM1)
+            return month == 2
+            
+        if section == "CONTINUATION":
+            # First spread (0, 1) and Last page (19 or 20)
+            if page_idx in [0, 1, 19, 20]:
                 return True
+            return False
+            
+        if section == "SOURCE":
+            return True
+            
         return False
+
+    def should_write_page(page_num):
+        # Deprecated in favor of is_test_content, but kept for compatibility 
+        # with existing calls that haven't been migrated if any.
+        # In this refactor, we will replace calls to this function.
+        return True
 
     # Column Layout
     COLUMN_GUTTER = 5  # mm
@@ -179,7 +217,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 """)
 
         # --- COVER PAGE ---
-        if should_write_page(1):
+        if is_test_content("TITLE"):
+            ensure_parity(1)
             f.write(r"\begin{titlepage}" + "\n")
             f.write(r"\label{sec:title}" + "\n")
             f.write(r"\centering" + "\n")
@@ -197,11 +236,11 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 f.write(r"      Title Page \dotfill \pageref{sec:title} \\" + "\n")
                 for m in range(1, 13):
                     m_name = calendar.month_name[m]
-                    # In test mode, only show months that are generated (Jan & Feb)
-                    if test_mode and m > 2:
-                        f.write(rf"      {m_name} \dotfill (Skipped) \\" + "\n")
-                    else:
+                    # In test mode, only show months that are generated
+                    if is_test_content("MONTH_SUMMARY", month=m):
                         f.write(rf"      {m_name} \dotfill \pageref{{sec:month_{m}}} \\" + "\n")
+                    else:
+                        f.write(rf"      {m_name} \dotfill (Skipped) \\" + "\n")
                 
                 # Continuation pages are not generated in test mode
                 if not test_mode:
@@ -237,6 +276,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"\end{tikzpicture}" + "\n")
 
             f.write(r"\end{titlepage}" + "\n")
+            physical_page_count += 1
 
         # We need a reference leap year to ensure we iterate through Feb 29.
         ref_year = START_YEAR
@@ -271,7 +311,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             
             # Loop for 2 pages (Left/Right)
             for page_idx in range(2):
-                if should_write_page(page_num):
+                if is_test_content("MONTH_SUMMARY", month=month):
+                    ensure_parity(page_num)
                     f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
                     
                     # Add Label for ToC (Only on first page of summary)
@@ -352,10 +393,97 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
                     f.write(r"\end{tikzpicture}" + "\n")
                     f.write(r"\newpage" + "\n")
+                    nonlocal physical_page_count
+                    physical_page_count += 1
                 
                 page_num += 1
             
             return page_num
+
+        def generate_year_month_summary(month, page_num):
+            """
+            Generates a Year/Month summary grid in landscape orientation.
+            Rows: Months (Jan-Dec)
+            Cols: Years (Start-End)
+            """
+            if is_test_content("YEAR_MONTH_SUMMARY", month=month):
+                ensure_parity(page_num)
+                f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
+                f.write(r"\begin{landscape}" + "\n")
+                
+                # Title
+                f.write(r"\begin{center}" + "\n")
+                f.write(r"{\Large \textbf{Year / Month Summary}} \par" + "\n")
+                f.write(r"\end{center}" + "\n")
+                f.write(r"\vspace{2mm}" + "\n")
+
+                f.write(r"\begin{tikzpicture}[x=1mm, y=1mm]" + "\n")
+                
+                # Dimensions
+                # Landscape A4: Width ~270mm (Long edge), Height ~190mm (Short edge)
+                # We have 10 Years + 1 Label Column
+                # We have 12 Months + 1 Header Row
+                
+                SUMMARY_MONTH_COL_W = 20
+                SUMMARY_YEAR_COL_W = 24
+                SUMMARY_ROW_H = 14
+                HEADER_ROW_H = 6
+                
+                GRID_W = SUMMARY_MONTH_COL_W + (NUM_YEARS * SUMMARY_YEAR_COL_W)
+                GRID_H = (12 * SUMMARY_ROW_H) + HEADER_ROW_H
+                
+                # Draw Grid
+                # Horizontal Lines
+                # Top
+                f.write(rf"\draw[bordergray] (0, {GRID_H}) -- ({GRID_W}, {GRID_H});" + "\n")
+                # Header Line
+                f.write(rf"\draw[bordergray] (0, {GRID_H - HEADER_ROW_H}) -- ({GRID_W}, {GRID_H - HEADER_ROW_H});" + "\n")
+                # Rows
+                for m in range(1, 13):
+                    y = GRID_H - HEADER_ROW_H - (m * SUMMARY_ROW_H)
+                    f.write(rf"\draw[bordergray] (0, {y}) -- ({GRID_W}, {y});" + "\n")
+                
+                # Vertical Lines
+                # Left Border
+                f.write(rf"\draw[bordergray] (0, 0) -- (0, {GRID_H});" + "\n")
+                # Month Col Separator
+                f.write(rf"\draw[bordergray] ({SUMMARY_MONTH_COL_W}, 0) -- ({SUMMARY_MONTH_COL_W}, {GRID_H});" + "\n")
+                # Year Columns
+                for i in range(NUM_YEARS):
+                    x = SUMMARY_MONTH_COL_W + ((i + 1) * SUMMARY_YEAR_COL_W)
+                    f.write(rf"\draw[bordergray] ({x}, 0) -- ({x}, {GRID_H});" + "\n")
+                
+                # --- CONTENT ---
+                
+                # 1. Year Headers (Row 0)
+                header_y = GRID_H - (HEADER_ROW_H / 2)
+                for i in range(NUM_YEARS):
+                    curr_year = START_YEAR + i
+                    header_x = SUMMARY_MONTH_COL_W + (i * SUMMARY_YEAR_COL_W) + (SUMMARY_YEAR_COL_W / 2)
+                    f.write(rf"\node[anchor=center] at ({header_x}, {header_y}) {{\textbf{{{curr_year}}}}};" + "\n")
+                
+                # 2. Month Labels (Column 0)
+                for m in range(1, 13):
+                    m_name = calendar.month_name[m]
+                    y_center = GRID_H - HEADER_ROW_H - ((m - 1) * SUMMARY_ROW_H) - (SUMMARY_ROW_H / 2)
+                    f.write(rf"\node[anchor=center] at ({SUMMARY_MONTH_COL_W/2}, {y_center}) {{\textbf{{{m_name}}}}};" + "\n")
+                
+                # 3. Guide Lines in Cells
+                # 3 lines per cell
+                line_spacing = SUMMARY_ROW_H / 4
+                for m in range(1, 13):
+                    row_top_y = GRID_H - HEADER_ROW_H - ((m - 1) * SUMMARY_ROW_H)
+                    for l in range(1, 4):
+                        y_line = row_top_y - (l * line_spacing)
+                        f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] ({SUMMARY_MONTH_COL_W}, {y_line}) -- ({GRID_W}, {y_line});" + "\n")
+
+                f.write(r"\end{tikzpicture}" + "\n")
+                f.write(r"\end{landscape}" + "\n")
+                f.write(r"\newpage" + "\n")
+                nonlocal physical_page_count
+                physical_page_count += 1
+            
+            return page_num + 1
 
         # Iterate through months to ensure proper pagination (Start Month on Left Page)
         for month in range(1, 13):
@@ -370,9 +498,11 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
             # Ensure we start on an Even (Left) page for the new month
             if page_num % 2 != 0:
-                if should_write_page(page_num):
+                if is_test_content("MONTH_SUMMARY", month=month):
+                    ensure_parity(page_num)
                     f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
                     f.write(r"\mbox{} \newpage" + "\n")
+                    physical_page_count += 1
                 page_num += 1
             
             # --- MONTH SUMMARY SPREAD ---
@@ -381,12 +511,24 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
             # Iterate through days in chunks
             for i in range(0, len(month_days), DAYS_PER_PAGE):
-                if not should_write_page(page_num):
+                chunk = month_days[i:i + DAYS_PER_PAGE]
+                
+                # Check if we should generate this page
+                is_chunk_test = False
+                if not test_mode:
+                    is_chunk_test = True
+                else:
+                    for _, d in chunk:
+                        if is_test_content("DAILY", month=month, day=d):
+                            is_chunk_test = True
+                            break
+                
+                if not is_chunk_test:
                     page_num += 1
                     continue
 
+                ensure_parity(page_num)
                 f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
-                chunk = month_days[i:i + DAYS_PER_PAGE]
 
                 for col_idx, (month, day) in enumerate(chunk):
                     month_name = calendar.month_name[month].upper()
@@ -530,11 +672,28 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
                 # End of Page Chunk
                 f.write(r"\newpage" + "\n")
+                physical_page_count += 1
                 page_num += 1
+
+            # --- YEAR/MONTH SUMMARY (For Short Months) ---
+            # Feb, Apr, Jun, Sep, Nov
+            if month in [2, 4, 6, 9, 11]:
+                page_num = generate_year_month_summary(month, page_num)
 
         # --- CONTINUATION PAGES ---
         # 20 pages (10 sheets) of lined notes
-        NUM_CONTINUATION_PAGES = 20
+        # We ensure the Source Code starts on an Odd page (Right side / Fresh sheet).
+        # If after 20 pages, the next page is Even, we add one more continuation page.
+        MIN_CONTINUATION_PAGES = 20
+        
+        # Calculate how many pages we need
+        # Current page_num is the start of continuation.
+        # If (page_num + 20) is Even, next page is Even. We want Odd. So we need 21.
+        # If (page_num + 20) is Odd, next page is Odd. Good. We need 20.
+        if (page_num + MIN_CONTINUATION_PAGES) % 2 == 0:
+            num_continuation_pages = MIN_CONTINUATION_PAGES + 1
+        else:
+            num_continuation_pages = MIN_CONTINUATION_PAGES
 
         # Calculate lines for full page
         line_spacing = BLOCK_H / NUM_WRITING_LINES
@@ -544,8 +703,9 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
         num_lines_cont = int(CONT_USABLE_H / line_spacing)
 
-        for i in range(NUM_CONTINUATION_PAGES):
-            if should_write_page(page_num):
+        for i in range(num_continuation_pages):
+            if is_test_content("CONTINUATION", page_idx=i):
+                ensure_parity(page_num)
                 f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
                 
                 if i == 0:
@@ -573,12 +733,14 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
                 f.write(r"\end{tikzpicture}")
                 f.write(r"\newpage" + "\n")
+                physical_page_count += 1
 
             page_num += 1
 
         # --- SOURCE CODE APPENDIX ---
         # Self-preservation: Print the source code of this script at the end of the journal.
-        if include_source:
+        if include_source and is_test_content("SOURCE"):
+            ensure_parity(page_num)
             # Ensure the page number is correct (continuing from the last logical page)
             f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
             
