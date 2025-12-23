@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Output Directory (Ignore contents but keep directory structure if needed)
+output/*
+!output/.gitkeep
+
+# OS
+.DS_Store
