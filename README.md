@@ -53,6 +53,36 @@ python3 forever_journal.py --test --spread 4up --align mirrored
 *   `--include-source`: Append the source code of the script to the end of the PDF.
 *   `--toc`: Include a Table of Contents on the Title Page (requires 2-pass compilation).
 
+## Special Day Annotations
+The journal supports annotating special days (Holidays, Birthdays, Anniversaries) directly into the writing grid. These are configured in the `SPECIAL_DAYS` dictionary within `forever_journal.py`.
+
+### Configuration
+Edit the `SPECIAL_DAYS` dictionary at the top of `forever_journal.py`:
+
+```python
+SPECIAL_DAYS = {
+    "annual": [
+        # Fixed Date
+        {"name": "New Year's Day", "month": 1, "day": 1},
+        # Variable Rule (e.g., 3rd Monday in Feb)
+        {"name": "President's Day", "rule": "3rd Mon Feb"},
+        # Special Rules
+        {"name": "Easter", "rule": "easter"},
+    ],
+    "counting": [
+        # Calculates "Years Since" (e.g., "Nathan (58y)")
+        {"name": "Nathan", "type": "Birthday", "date": "1968-11-29"},
+        {"name": "Nathan & Dana", "type": "Anniversary", "date": "1994-06-30"},
+    ]
+}
+```
+
+### Features
+*   **Annual Events:** Supports fixed dates (Month/Day) and variable rules (Nth Weekday of Month, Easter).
+*   **Counting Events:** Automatically calculates the age or anniversary year for the specific journal year (e.g., in 2026, a 1996 birthday shows as "(30y)").
+*   **Title Page Summary:** A table of all configured special days is generated on the Title Page.
+*   **Grid Injection:** The event name is printed in small text on the first line of the daily block, carefully aligned to avoid writing guides.
+
 ## Test Mode Requirements
 The `--test` flag generates a representative subset of the journal to verify layout and printing alignment without generating the full 400+ pages.
 *   **Title Page:** Page 1 (Odd).

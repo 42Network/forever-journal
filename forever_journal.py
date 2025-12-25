@@ -63,6 +63,123 @@ USABLE_H = ESTIMATED_TEXT_HEIGHT - HEADER_H - 2
 BLOCK_H = USABLE_H / NUM_YEARS
 
 
+# --- CONFIGURATION: SPECIAL DAYS ---
+SPECIAL_DAYS = {
+    "annual": [
+        {"name": "New Year's Day", "month": 1, "day": 1},
+        {"name": "President's Day", "rule": "3rd Mon Feb"},
+        {"name": "Easter", "rule": "easter"},
+        {"name": "Memorial Day", "rule": "last Mon May"},
+        {"name": "Independence Day", "month": 7, "day": 4},
+        {"name": "Labor Day", "rule": "1st Mon Sep"},
+        {"name": "Thanksgiving", "rule": "4th Thu Nov"},
+        {"name": "Christmas", "month": 12, "day": 25},
+    ],
+    "counting": [
+        {"name": "Nathan", "type": "Birthday", "date": "1968-11-29"},
+        {"name": "Dana", "type": "Birthday", "date": "1968-09-26"},
+        {"name": "Benjamin", "type": "Birthday", "date": "1995-08-18"},
+        {"name": "Thaddeus", "type": "Birthday", "date": "1996-11-30"},
+        {"name": "Eli", "type": "Birthday", "date": "2000-03-30"},
+        {"name": "Isaac", "type": "Birthday", "date": "2003-08-28"},
+        {"name": "Lydia", "type": "Birthday", "date": "2005-01-19"},
+        {"name": "Keren", "type": "Birthday", "date": "2007-09-11"},
+        {"name": "Nathan & Dana", "type": "Anniversary", "date": "1994-06-30"},
+        {"name": "Bill & Pat", "type": "Anniversary", "date": "1967-07-07"},
+    ]
+}
+
+def calculate_easter(year):
+    """Calculates Western Easter date for a given year."""
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    return month, day
+
+def get_nth_weekday_of_month(year, month, weekday_idx, n):
+    """
+    Returns the day of the month for the Nth occurrence of a weekday.
+    weekday_idx: 0=Mon, 6=Sun
+    n: 1 for 1st, 2 for 2nd, ... -1 for last
+    """
+    cal = calendar.monthcalendar(year, month)
+    days = [week[weekday_idx] for week in cal if week[weekday_idx] != 0]
+    if n > 0:
+        if n <= len(days):
+            return days[n-1]
+    else:
+        if abs(n) <= len(days):
+            return days[n]
+    return None
+
+def parse_rule(rule, year):
+    """Parses a rule string like '3rd Mon Feb' and returns (month, day)."""
+    parts = rule.split()
+    if rule == "easter":
+        return calculate_easter(year)
+    
+    if len(parts) == 3:
+        # e.g. "3rd Mon Feb" or "last Mon May"
+        nth_str, day_str, month_str = parts
+        
+        # Parse Month
+        month_map = {m: i for i, m in enumerate(calendar.month_abbr) if m}
+        month = month_map.get(month_str[:3].title())
+        if not month: return None, None
+        
+        # Parse Weekday
+        day_map = {"Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6}
+        weekday = day_map.get(day_str[:3].title())
+        if weekday is None: return None, None
+        
+        # Parse Nth
+        if nth_str.lower() == "last":
+            n = -1
+        else:
+            # "1st", "2nd", "3rd", "4th"
+            n = int(nth_str[0])
+            
+        day = get_nth_weekday_of_month(year, month, weekday, n)
+        return month, day
+        
+    return None, None
+
+def get_special_events(year, month, day):
+    events = []
+    
+    # Check Annual
+    for item in SPECIAL_DAYS["annual"]:
+        if "month" in item and "day" in item:
+            if item["month"] == month and item["day"] == day:
+                events.append(item["name"])
+        elif "rule" in item:
+            m, d = parse_rule(item["rule"], year)
+            if m == month and d == day:
+                events.append(item["name"])
+                
+    # Check Counting
+    for item in SPECIAL_DAYS["counting"]:
+        # Parse date "YYYY-MM-DD"
+        y_str, m_str, d_str = item["date"].split("-")
+        if int(m_str) == month and int(d_str) == day:
+            years_elapsed = year - int(y_str)
+            if years_elapsed >= 0:
+                events.append(f"{item['name']} ({years_elapsed}y)")
+                
+    return events
+
+
 def get_day_of_week(year, month, day):
     """Returns the abbreviated day of the week (e.g., 'Mon') for a given date."""
     try:
@@ -226,6 +343,25 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"{\Huge \textbf{Forever Journal} \par}" + "\n")
             f.write(r"\vspace{2cm}" + "\n")
             f.write(rf"{{\Large {START_YEAR} -- {START_YEAR + NUM_YEARS - 1} \par}}" + "\n")
+            
+            # Special Days Table
+            f.write(r"\vspace{1cm}" + "\n")
+            f.write(r"{\small" + "\n")
+            f.write(r"\begin{tabular}{ll}" + "\n")
+            f.write(r"\textbf{Annual} & \textbf{Rule/Date} \\" + "\n")
+            for item in SPECIAL_DAYS["annual"]:
+                if "rule" in item:
+                    rule = item["rule"]
+                else:
+                    rule = f"{calendar.month_abbr[item['month']]} {item['day']}"
+                f.write(rf"{item['name']} & {rule} \\" + "\n")
+            f.write(r"& \\" + "\n")
+            f.write(r"\textbf{Counting} & \textbf{Date} \\" + "\n")
+            for item in SPECIAL_DAYS["counting"]:
+                name = item['name'].replace("&", r"\&")
+                f.write(rf"{name} ({item['type']}) & {item['date']} \\" + "\n")
+            f.write(r"\end{tabular}" + "\n")
+            f.write(r"}" + "\n")
             
             # ToC Box
             if toc_enabled:
@@ -621,6 +757,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                         f.write(rf"\path[use as bounding box] (0,0) rectangle ({w}, {h});" + "\n")
 
                         line_spacing = h / NUM_WRITING_LINES
+                        circle_radius = line_spacing * 0.25
 
                         if not skip_content:
                             # Align labels to match header alignment
@@ -637,8 +774,23 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                         if not skip_content:
                             guide_gap = YEAR_LABEL_WIDTH + 1
 
+                            # Special Events Injection
+                            events = get_special_events(curr_year, month, day)
+                            if events:
+                                event_str = ", ".join(events)
+                                event_str = event_str.replace("&", r"\&")
+                                y_text = h - 0.5 * line_spacing
+                                if align_right:
+                                    # Text on Left (Inner edge)
+                                    # Circle is at cx = circle_radius + 1
+                                    # Text should start after circle
+                                    x_text = (circle_radius + 1) + circle_radius + 1
+                                    f.write(rf"\node[anchor=west, inner sep=0, text=textgray, font=\footnotesize] at ({x_text}, {y_text}) {{{event_str}}};" + "\n")
+                                else:
+                                    # Text on Right (after label)
+                                    f.write(rf"\node[anchor=west, inner sep=0, text=textgray, font=\footnotesize] at ({guide_gap} + 1, {y_text}) {{{event_str}}};" + "\n")
+
                             # Circles for first two lines (Inside end)
-                            circle_radius = line_spacing * 0.25
                             for s in range(2):  # First two spaces
                                 y_circle = h - (s + 0.5) * line_spacing
                                 if align_right:  # Inner is Left
