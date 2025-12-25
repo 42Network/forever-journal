@@ -265,7 +265,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             # Only the one after Feb (YM1)
             return month == 2
             
-        if section == "CONTINUATION":
+        if section == "EXTRA_PAGES":
             # First spread (0, 1) and Last page (19 or 20)
             if page_idx in [0, 1, 19, 20]:
                 return True
@@ -378,11 +378,11 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     else:
                         f.write(rf"      {m_name} \dotfill (Skipped) \\" + "\n")
                 
-                # Continuation pages are not generated in test mode
+                # Extra pages are not generated in test mode
                 if not test_mode:
-                    f.write(r"      Continuation Pages \dotfill \pageref{sec:continuation} \\" + "\n")
+                    f.write(r"      Extra Pages \dotfill \pageref{sec:extra_pages} \\" + "\n")
                 else:
-                    f.write(r"      Continuation Pages \dotfill (Skipped) \\" + "\n")
+                    f.write(r"      Extra Pages \dotfill (Skipped) \\" + "\n")
                     
                 if include_source:
                     f.write(r"      Source Code \dotfill \pageref{sec:source} \\" + "\n")
@@ -832,58 +832,90 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             if month in [2, 4, 6, 9, 11]:
                 page_num = generate_year_month_summary(month, page_num)
 
-        # --- CONTINUATION PAGES ---
-        # 20 pages (10 sheets) of lined notes
+        # --- EXTRA PAGES ---
+        # 10 pages (5 sheets) of lined notes
         # We ensure the Source Code starts on an Odd page (Right side / Fresh sheet).
-        # If after 20 pages, the next page is Even, we add one more continuation page.
-        MIN_CONTINUATION_PAGES = 20
+        # If after 10 pages, the next page is Even, we add one more extra page.
+        MIN_EXTRA_PAGES = 10
         
         # Calculate how many pages we need
-        # Current page_num is the start of continuation.
-        # If (page_num + 20) is Even, next page is Even. We want Odd. So we need 21.
-        # If (page_num + 20) is Odd, next page is Odd. Good. We need 20.
-        if (page_num + MIN_CONTINUATION_PAGES) % 2 == 0:
-            num_continuation_pages = MIN_CONTINUATION_PAGES + 1
+        # Current page_num is the start of extra pages.
+        # If (page_num + 10) is Even, next page is Even. We want Odd. So we need 11.
+        # If (page_num + 10) is Odd, next page is Odd. Good. We need 10.
+        if (page_num + MIN_EXTRA_PAGES) % 2 == 0:
+            num_extra_pages = MIN_EXTRA_PAGES + 1
         else:
-            num_continuation_pages = MIN_CONTINUATION_PAGES
+            num_extra_pages = MIN_EXTRA_PAGES
 
         # Calculate lines for full page
         line_spacing = BLOCK_H / NUM_WRITING_LINES
 
-        # Usable height for continuation pages
-        CONT_USABLE_H = ESTIMATED_TEXT_HEIGHT - HEADER_H - 10
+        # Usable height for extra pages
+        # Reduce height by one line to make room for "date" annotation
+        EXTRA_USABLE_H = USABLE_H - line_spacing
 
-        num_lines_cont = int(CONT_USABLE_H / line_spacing)
+        # Calculate column width for 2 columns
+        EXTRA_COL_WIDTH = (CALC_TEXT_WIDTH - COLUMN_GUTTER) / 2
 
-        for i in range(num_continuation_pages):
-            if is_test_content("CONTINUATION", page_idx=i):
+        num_lines_extra = int(EXTRA_USABLE_H / line_spacing)
+
+        for i in range(num_extra_pages):
+            if is_test_content("EXTRA_PAGES", page_idx=i):
                 ensure_parity(page_num)
                 f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
                 
                 if i == 0:
-                    f.write(r"\label{sec:continuation}" + "\n")
+                    f.write(r"\label{sec:extra_pages}" + "\n")
 
-                # Header (Empty, just spacing to match main pages)
+                # --- HEADER ---
                 f.write(rf"\begin{{minipage}}[t][{HEADER_H}mm]{{\textwidth}}")
-                f.write(r"\mbox{}")
+                
+                header_text = r"\huge \textbf{Extra Pages}"
+                
+                # Align based on page parity (Mirrored)
+                # Even (Left): Align Left
+                # Odd (Right): Align Right
+                if page_num % 2 == 0: # Even/Left
+                     f.write(rf"\makebox[\textwidth][l]{{{header_text}}}")
+                else: # Odd/Right
+                     f.write(rf"\makebox[\textwidth][r]{{{header_text}}}")
+
                 f.write(r"\end{minipage}")
                 f.write(r"\par \nointerlineskip")
+                
+                # Add spacing so "date" annotation doesn't overlap header
+                f.write(rf"\vspace{{{line_spacing}mm}}" + "\n")
 
-                # Full page lines
-                f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm]" + "\n")
-                w_cont = CALC_TEXT_WIDTH
-                h_cont = CONT_USABLE_H
+                # --- COLUMNS ---
+                for col in range(2):
+                    if col > 0:
+                        f.write(r"\hfill" + "\n")
+                        
+                    f.write(rf"\begin{{minipage}}[t]{{{EXTRA_COL_WIDTH}mm}}" + "\n")
+                    
+                    # TikZ for lines
+                    f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm]" + "\n")
+                    f.write(rf"\path[use as bounding box] (0,0) rectangle ({EXTRA_COL_WIDTH}, {EXTRA_USABLE_H});" + "\n")
+                    
+                    # "date" annotation
+                    # Top left of the column, above the writing area.
+                    f.write(rf"\node[anchor=south west, inner sep=0, text=textgray, yshift=0.5mm] at (0, {EXTRA_USABLE_H}) {{\small \textit{{date}}}};" + "\n")
+                    
+                    # Lines
+                    # Top Border
+                    f.write(rf"\draw[bordergray] (0, {EXTRA_USABLE_H}) -- ({EXTRA_COL_WIDTH}, {EXTRA_USABLE_H});" + "\n")
+                    
+                    for l in range(1, num_lines_extra + 1):
+                        y_pos = EXTRA_USABLE_H - l * line_spacing
+                        # Bottom border for the last line
+                        if l == num_lines_extra:
+                             f.write(rf"\draw[bordergray] (0, {y_pos}) -- ({EXTRA_COL_WIDTH}, {y_pos});" + "\n")
+                        else:
+                             f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] (0, {y_pos}) -- ({EXTRA_COL_WIDTH}, {y_pos});" + "\n")
 
-                f.write(rf"\path[use as bounding box] (0,0) rectangle ({w_cont}, {h_cont});" + "\n")
+                    f.write(r"\end{tikzpicture}" + "\n")
+                    f.write(r"\end{minipage}" + "\n")
 
-                for l in range(1, num_lines_cont):
-                    y_pos = h_cont - l * line_spacing
-                    f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] (0, {y_pos}) -- ({w_cont}, {y_pos});" + "\n")
-
-                # Bottom Border
-                f.write(rf"\draw[bordergray] (0, 0) -- ({w_cont}, 0);" + "\n")
-
-                f.write(r"\end{tikzpicture}")
                 f.write(r"\newpage" + "\n")
                 physical_page_count += 1
 

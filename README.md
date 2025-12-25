@@ -43,7 +43,7 @@ Run the script. It will generate the LaTeX file in `output/` and automatically c
 python3 forever_journal.py --spread 4up --align mirrored
 
 # Test Mode (Generates a small subset of pages for testing layout)
-# Captures: Title, Feb Summary, Feb 1-4, Feb 29, YM1, Dec 29-31, Continuation, Source Code.
+# Captures: Title, Feb Summary, Feb 1-4, Feb 29, YM1, Dec 29-31, Extra Pages, Source Code.
 # Preserves even/odd page alignment for double-sided printing.
 python3 forever_journal.py --test --spread 4up --align mirrored
 ```
@@ -83,6 +83,13 @@ SPECIAL_DAYS = {
 *   **Title Page Summary:** A table of all configured special days is generated on the Title Page.
 *   **Grid Injection:** The event name is printed in small text on the first line of the daily block, carefully aligned to avoid writing guides.
 
+## Extra Pages
+The journal includes a section of **Extra Pages** at the end (default: 10 pages) for longer entries that overflow the daily grid.
+*   **Layout:** 2-Column layout matching the daily pages.
+*   **Header:** "Extra Pages" header aligned to the outer edge.
+*   **Annotation:** A small "*date*" prompt at the top of each column to encourage dating entries.
+*   **Pagination:** Dynamically calculated to ensure the Source Code appendix always starts on a fresh sheet (Odd page).
+
 ## Test Mode Requirements
 The `--test` flag generates a representative subset of the journal to verify layout and printing alignment without generating the full 400+ pages.
 *   **Title Page:** Page 1 (Odd).
@@ -90,7 +97,7 @@ The `--test` flag generates a representative subset of the journal to verify lay
 *   **February Start:** Days 1-4 (Even/Odd spread).
 *   **February End:** Day 29 (Leap Year check) + Year/Month Summary (YM1).
 *   **December End:** Days 29-31 (End of Journal).
-*   **Continuation Pages:** First spread (1-2) and Last page (20).
+*   **Extra Pages:** First spread (1-2) and Last page (10).
 *   **Source Code:** Full appendix.
 *   **Alignment:** Strictly preserves Even/Odd (Left/Right) page parity for correct double-sided printing.
 *   `--test`: Generate a small test file (12 pages) instead of the full journal.
