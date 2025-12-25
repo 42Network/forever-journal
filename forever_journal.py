@@ -282,6 +282,78 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
     # Global counter for physical pages written to the PDF
     # Initialized to 0. Writing Title Page (Page 1) makes it 1.
     physical_page_count = 0
+    event_list_counter = 1
+
+    def render_event_list(event_list_num, width=None):
+        """Renders an Event List column or page."""
+        if width is None:
+            width = COL_WIDTH
+
+        # Header
+        f.write(rf"\begin{{minipage}}[t][{HEADER_H}mm]{{\textwidth}}")
+        f.write(rf"\huge \textbf{{Event List {event_list_num}}} \hfill")
+        f.write(r"\end{minipage}")
+        f.write(rf"\addcontentsline{{toc}}{{section}}{{Event List {event_list_num}}}")
+        f.write(rf"\label{{sec:event_list_{event_list_num}}}" + "\n")
+        f.write(r"\par \nointerlineskip")
+
+        # 10 Year Blocks
+        for y_idx in range(NUM_YEARS):
+            curr_year = START_YEAR + y_idx
+            
+            f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm, trim left=0mm, trim right={width}mm]" + "\n")
+            w = width
+            h = BLOCK_H
+            f.write(rf"\path[use as bounding box] (0,0) rectangle ({w}, {h});" + "\n")
+            
+            # Year Label (Right aligned)
+            f.write(rf"\node[anchor=north east, text width={YEAR_LABEL_WIDTH}mm, align=right, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at ({w},{h}) {{\textbf{{{curr_year}}}}};" + "\n")
+            
+            # Column Headers (Date | Event | Date | Event | Date | Event)
+            # 3 Groups
+            pair_w = w / 3
+            date_w = pair_w / 4
+            
+            # Group 1
+            f.write(rf"\node[anchor=north west, inner sep=1pt, font=\scriptsize\itshape] at (0, {h}) {{date}};" + "\n")
+            f.write(rf"\node[anchor=north west, inner sep=1pt, font=\scriptsize\itshape] at ({date_w}, {h}) {{event}};" + "\n")
+            
+            # Group 2
+            f.write(rf"\node[anchor=north west, inner sep=1pt, font=\scriptsize\itshape] at ({pair_w}, {h}) {{date}};" + "\n")
+            f.write(rf"\node[anchor=north west, inner sep=1pt, font=\scriptsize\itshape] at ({pair_w + date_w}, {h}) {{event}};" + "\n")
+
+            # Group 3
+            f.write(rf"\node[anchor=north west, inner sep=1pt, font=\scriptsize\itshape] at ({2 * pair_w}, {h}) {{date}};" + "\n")
+            f.write(rf"\node[anchor=north west, inner sep=1pt, font=\scriptsize\itshape] at ({2 * pair_w + date_w}, {h}) {{event}};" + "\n")
+
+            # Top Border (First block only)
+            if y_idx == 0:
+                f.write(rf"\draw[bordergray] (0, {h}) -- ({w}, {h});" + "\n")
+            
+            # Vertical Dividers
+            # Group 1 internal
+            f.write(rf"\draw[guidegray] ({date_w}, 0) -- ({date_w}, {h});" + "\n")
+            # Group 1/2 separator
+            f.write(rf"\draw[guidegray] ({pair_w}, 0) -- ({pair_w}, {h});" + "\n")
+            
+            # Group 2 internal
+            f.write(rf"\draw[guidegray] ({pair_w + date_w}, 0) -- ({pair_w + date_w}, {h});" + "\n")
+            # Group 2/3 separator
+            f.write(rf"\draw[guidegray] ({2 * pair_w}, 0) -- ({2 * pair_w}, {h});" + "\n")
+            
+            # Group 3 internal
+            f.write(rf"\draw[guidegray] ({2 * pair_w + date_w}, 0) -- ({2 * pair_w + date_w}, {h});" + "\n")
+            
+            # Writing Guidelines
+            line_spacing = h / NUM_WRITING_LINES
+            for l in range(1, NUM_WRITING_LINES):
+                y_pos = h - l * line_spacing
+                f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] (0, {y_pos}) -- ({w}, {y_pos});" + "\n")
+
+            # Bottom Divider
+            f.write(rf"\draw[bordergray] (0, 0) -- ({w}, 0);" + "\n")
+            f.write(r"\end{tikzpicture}" + "\n")
+            f.write(r"\par \nointerlineskip" + "\n")
 
     def ensure_parity(logical_page_num):
         """
@@ -289,13 +361,18 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         does not match the even/odd parity of the target logical page number.
         """
         nonlocal physical_page_count
+        nonlocal event_list_counter
         
         # Parity: 1 = Odd, 0 = Even
         target_parity = logical_page_num % 2
         next_physical_parity = (physical_page_count + 1) % 2
         
         if target_parity != next_physical_parity:
-            f.write(r"\mbox{} \newpage" + "\n")
+            # Render Full Page Event List instead of blank page
+            render_event_list(event_list_counter, width=CALC_TEXT_WIDTH)
+            event_list_counter += 1
+            
+            f.write(r"\newpage" + "\n")
             physical_page_count += 1
 
     def is_test_content(section, month=None, day=None, page_idx=None):
@@ -389,6 +466,14 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 \setlength{\parskip}{0pt}
 \raggedbottom % Prevent underfull vbox warnings and forced vertical stretching
 
+\makeatletter
+\newcommand{\eventlistrow}[1]{%
+  \@ifundefined{r@sec:event_list_#1}{}{%
+    Event List #1 & \pageref{sec:event_list_#1} \\%
+  }%
+}
+\makeatother
+
 % Color Definitions
 \definecolor{guidegray}{gray}{0.6} % Darker guide lines
 \definecolor{bordergray}{gray}{0.3} % Darker border lines
@@ -411,13 +496,17 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"\begin{titlepage}" + "\n")
             f.write(r"\label{sec:title}" + "\n")
             f.write(r"\centering" + "\n")
-            f.write(r"\vspace*{5cm}" + "\n")
-            f.write(r"{\Huge \textbf{Forever Journal} \par}" + "\n")
-            f.write(r"\vspace{2cm}" + "\n")
-            f.write(rf"{{\Large {START_YEAR} -- {START_YEAR + NUM_YEARS - 1} \par}}" + "\n")
             
-            # Special Days Table
+            # Title at Top
+            f.write(r"{\Huge \textbf{Forever Journal} \par}" + "\n")
+            f.write(r"\vspace{0.5cm}" + "\n")
+            f.write(rf"{{\Large {START_YEAR} -- {START_YEAR + NUM_YEARS - 1} \par}}" + "\n")
             f.write(r"\vspace{1cm}" + "\n")
+            
+            # Two Columns: Special Days (Left) | ToC (Right)
+            f.write(r"\begin{minipage}[t]{0.48\textwidth}" + "\n")
+            f.write(r"\centering" + "\n")
+            f.write(r"\textbf{Special Days} \par \vspace{2mm}" + "\n")
             f.write(r"{\small" + "\n")
             f.write(r"\begin{tabular}{ll}" + "\n")
             f.write(r"\textbf{Annual} & \textbf{Rule/Date} \\" + "\n")
@@ -446,42 +535,45 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 f.write(rf"{name} ({item['type']}) & {item['date']} \\" + "\n")
             f.write(r"\end{tabular}" + "\n")
             f.write(r"}" + "\n")
+            f.write(r"\end{minipage}" + "\n")
             
-            # ToC Box
+            f.write(r"\hfill" + "\n")
+            
+            f.write(r"\begin{minipage}[t]{0.48\textwidth}" + "\n")
+            f.write(r"\centering" + "\n")
             if toc_enabled:
-                f.write(r"\begin{tikzpicture}[remember picture, overlay]" + "\n")
-                f.write(rf"  \node[anchor=south east, xshift=-{TARGET_MARGIN_OUTER}mm, yshift={TARGET_MARGIN_BOTTOM}mm] at (current page.south east) {{" + "\n")
-                f.write(r"    \begin{minipage}{7cm}" + "\n")
-                f.write(r"      \textbf{Table of Contents} \par \vspace{2mm}" + "\n")
-                f.write(r"      Title Page \dotfill \pageref{sec:title} \\" + "\n")
+                f.write(r"\textbf{Table of Contents} \par \vspace{2mm}" + "\n")
+                f.write(r"\begin{tabular}{lr}" + "\n") # Use tabular for alignment
+                f.write(r"Title Page & \pageref{sec:title} \\" + "\n")
                 for m in range(1, 13):
                     m_name = calendar.month_name[m]
-                    # In test mode, only show months that are generated
                     if is_test_content("MONTH_SUMMARY", month=m):
-                        f.write(rf"      {m_name} \dotfill \pageref{{sec:month_{m}}} \\" + "\n")
+                        f.write(rf"{m_name} & \pageref{{sec:month_{m}}} \\" + "\n")
                     else:
-                        f.write(rf"      {m_name} \dotfill (Skipped) \\" + "\n")
+                        f.write(rf"{m_name} & (Skipped) \\" + "\n")
                 
-                # Extra pages are not generated in test mode
+                # Add Event Lists (Dynamic check)
+                for i in range(1, 15): # Check up to 15 potential event lists
+                    f.write(rf"\eventlistrow{{{i}}}" + "\n")
+
                 if not test_mode:
-                    f.write(r"      Extra Pages \dotfill \pageref{sec:extra_pages} \\" + "\n")
+                    f.write(r"Extra Pages & \pageref{sec:extra_pages} \\" + "\n")
                 else:
-                    f.write(r"      Extra Pages \dotfill (Skipped) \\" + "\n")
+                    f.write(r"Extra Pages & (Skipped) \\" + "\n")
                     
                 if include_source:
-                    f.write(r"      Source Code \dotfill \pageref{sec:source} \\" + "\n")
-                f.write(r"    \end{minipage}" + "\n")
-                f.write(r"  };" + "\n")
-                f.write(r"\end{tikzpicture}" + "\n")
+                    f.write(r"Source Code & \pageref{sec:source} \\" + "\n")
+                f.write(r"\end{tabular}" + "\n")
+            f.write(r"\end{minipage}" + "\n")
             
             f.write(r"\vfill" + "\n")
 
-            # Info Box at Bottom Left
+            # Info Box at Bottom Right
             now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             f.write(r"\begin{tikzpicture}[remember picture, overlay]" + "\n")
-            f.write(rf"  \node[anchor=south west, xshift={TARGET_MARGIN_INNER}mm, yshift=1cm] at (current page.south west) {{" + "\n")
+            f.write(rf"  \node[anchor=south east, xshift=-{TARGET_MARGIN_OUTER}mm, yshift=1cm] at (current page.south east) {{" + "\n")
             f.write(r"    \begin{minipage}{10cm}" + "\n")
-            f.write(r"      \small \ttfamily" + "\n")
+            f.write(r"      \flushright \small \ttfamily" + "\n")
             f.write(rf"      Start Year: {START_YEAR} \\" + "\n")
             f.write(rf"      Num Years: {NUM_YEARS} \\" + "\n")
             f.write(rf"      Lines/Day: {NUM_WRITING_LINES} \\" + "\n")
@@ -506,7 +598,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         page_num = 2  # Start on page 2 (Left) after title page
 
         def generate_month_summary(month, page_num):
-            """Generates a 2-page summary spread for the month."""
+            """Generates a 1-page summary for the month."""
             month_name = calendar.month_name[month]
             days_in_month = calendar.monthrange(ref_year, month)[1]
             
@@ -515,197 +607,83 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             HEADER_H = 15 # mm
             
             # Calculate column widths
-            # Left page: Day Num + 5 Years
-            # Right page: 5 Years
-            # We use the full text width
+            # Day Num + 10 Years
+            DAY_NUM_W = 8
+            YEAR_COL_W = (CALC_TEXT_WIDTH - DAY_NUM_W) / 10
             
-            # Day Number Column Width
-            DAY_NUM_W = 10
-            
-            # Year Column Width
-            # Left Page: (TextWidth - DayNumW) / 5
-            # Right Page: TextWidth / 5 ? Or keep consistent?
-            # Let's keep year columns consistent width across both pages.
-            # So we base it on the Left Page constraint.
-            YEAR_COL_W = (CALC_TEXT_WIDTH - DAY_NUM_W) / 5
-            
-            # Loop for 2 pages (Left/Right)
-            for page_idx in range(2):
-                if is_test_content("MONTH_SUMMARY", month=month):
-                    ensure_parity(page_num)
-                    f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
-                    
-                    # Add Label for ToC (Only on first page of summary)
-                    if page_idx == 0:
-                        f.write(rf"\label{{sec:month_{month}}}" + "\n")
-                    
-                    # Determine year range for this page
-                    if page_idx == 0: # Left Page
-                        year_range = range(START_YEAR, START_YEAR + 5)
-                        is_left_page = True
-                    else: # Right Page
-                        year_range = range(START_YEAR + 5, START_YEAR + 10)
-                        is_left_page = False
-                    
-                    f.write(r"\begin{center}" + "\n")
-                    f.write(rf"{{\Large \textbf{{{month_name} Summary}}}}" + "\n")
-                    f.write(r"\end{center}" + "\n")
-                    
-                    f.write(r"\vspace{5mm}" + "\n")
-                    
-                    # TikZ Grid
-                    # Height = (days_in_month + 1 header) * ROW_H
-                    grid_h = (days_in_month + 1) * ROW_H
-                    
-                    f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm]" + "\n")
-                    
-                    # Draw Horizontal Lines
-                    # We need lines from index 0 (top) to days_in_month + 1 (bottom)
-                    # Total rows = days_in_month + 1 (header)
-                    # Total lines = days_in_month + 2
-                    w = DAY_NUM_W + 5 * YEAR_COL_W
-                    
-                    for d in range(days_in_month + 2):
-                        y = grid_h - (d * ROW_H)
-                        f.write(rf"\draw[bordergray] (0, {y}) -- ({w}, {y});" + "\n")
-                        
-                    # Draw Vertical Lines
-                    # Left Border
-                    f.write(rf"\draw[bordergray] (0, 0) -- (0, {grid_h});" + "\n")
-                    # Day Num Separator
-                    f.write(rf"\draw[bordergray] ({DAY_NUM_W}, 0) -- ({DAY_NUM_W}, {grid_h});" + "\n")
-                    # Year Columns
-                    for i in range(5):
-                        x = DAY_NUM_W + (i + 1) * YEAR_COL_W
-                        f.write(rf"\draw[bordergray] ({x}, 0) -- ({x}, {grid_h});" + "\n")
-
-                    # --- CONTENT ---
-                    
-                    # 1. Day Numbers (Column 0)
-                    # Rows 1 to days_in_month
-                    for day in range(1, days_in_month + 1):
-                        # Row 0 is Header. Row 1 is Day 1.
-                        # y_top of Row 1 is grid_h - ROW_H
-                        # y_center of Row 1 is grid_h - 1.5 * ROW_H
-                        y_center = grid_h - (day * ROW_H) - (ROW_H / 2)
-                        f.write(rf"\node[anchor=center] at ({DAY_NUM_W/2}, {y_center}) {{\small \textbf{{{day}}}}};" + "\n")
-                        
-                    # 2. Year Headers (Row 0)
-                    header_y = grid_h - (ROW_H / 2)
-                    for i in range(5):
-                        curr_year = year_range[i]
-                        header_x = DAY_NUM_W + (i * YEAR_COL_W) + (YEAR_COL_W / 2)
-                        f.write(rf"\node[anchor=center] at ({header_x}, {header_y}) {{\textbf{{{curr_year}}}}};" + "\n")
-                        
-                    # 3. Day Cells (Rows 1 to days_in_month)
-                    for day in range(1, days_in_month + 1):
-                        row_top_y = grid_h - (day * ROW_H)
-                        
-                        for i in range(5):
-                            curr_year = year_range[i]
-                            col_left_x = DAY_NUM_W + (i * YEAR_COL_W)
-                            
-                            dow = get_day_of_week(curr_year, month, day)[:2]
-                            color_cmd = r"\color{sundayred}" if dow == "Su" and SUNDAYS_RED else ""
-                            
-                            # Top Left Corner
-                            f.write(rf"\node[anchor=north west, inner sep=1pt] at ({col_left_x + 1}, {row_top_y - 1}) {{\tiny {color_cmd} {dow}}};" + "\n")
-
-                    f.write(r"\end{tikzpicture}" + "\n")
-                    f.write(r"\newpage" + "\n")
-                    nonlocal physical_page_count
-                    physical_page_count += 1
+            if is_test_content("MONTH_SUMMARY", month=month):
+                # Ensure we start on an Even (Left) page
+                if page_num % 2 != 0: # Odd/Right
+                    ensure_parity(page_num + 1) # Force skip to Even
+                    page_num += 1
                 
-                page_num += 1
-            
-            return page_num
-
-        def generate_year_month_summary(month, page_num):
-            """
-            Generates a Year/Month summary grid in landscape orientation.
-            Rows: Months (Jan-Dec)
-            Cols: Years (Start-End)
-            """
-            if is_test_content("YEAR_MONTH_SUMMARY", month=month):
                 ensure_parity(page_num)
                 f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
-                f.write(r"\begin{landscape}" + "\n")
+                f.write(rf"\label{{sec:month_{month}}}" + "\n")
                 
-                # Title
                 f.write(r"\begin{center}" + "\n")
-                f.write(r"{\Large \textbf{Year / Month Summary}} \par" + "\n")
+                f.write(rf"{{\Large \textbf{{{month_name} Summary}}}}" + "\n")
                 f.write(r"\end{center}" + "\n")
-                f.write(r"\vspace{2mm}" + "\n")
-
-                f.write(r"\begin{tikzpicture}[x=1mm, y=1mm]" + "\n")
                 
-                # Dimensions
-                # Landscape A4: Width ~270mm (Long edge), Height ~190mm (Short edge)
-                # We have 10 Years + 1 Label Column
-                # We have 12 Months + 1 Header Row
+                f.write(r"\vspace{5mm}" + "\n")
                 
-                SUMMARY_MONTH_COL_W = 20
-                SUMMARY_YEAR_COL_W = 24
-                SUMMARY_ROW_H = 14
-                HEADER_ROW_H = 6
+                # TikZ Grid
+                grid_h = (days_in_month + 1) * ROW_H
                 
-                GRID_W = SUMMARY_MONTH_COL_W + (NUM_YEARS * SUMMARY_YEAR_COL_W)
-                GRID_H = (12 * SUMMARY_ROW_H) + HEADER_ROW_H
+                f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm]" + "\n")
                 
-                # Draw Grid
-                # Horizontal Lines
-                # Top
-                f.write(rf"\draw[bordergray] (0, {GRID_H}) -- ({GRID_W}, {GRID_H});" + "\n")
-                # Header Line
-                f.write(rf"\draw[bordergray] (0, {GRID_H - HEADER_ROW_H}) -- ({GRID_W}, {GRID_H - HEADER_ROW_H});" + "\n")
-                # Rows
-                for m in range(1, 13):
-                    y = GRID_H - HEADER_ROW_H - (m * SUMMARY_ROW_H)
-                    f.write(rf"\draw[bordergray] (0, {y}) -- ({GRID_W}, {y});" + "\n")
+                # Draw Horizontal Lines
+                w = DAY_NUM_W + 10 * YEAR_COL_W
                 
-                # Vertical Lines
+                for d in range(days_in_month + 2):
+                    y = grid_h - (d * ROW_H)
+                    f.write(rf"\draw[bordergray] (0, {y}) -- ({w}, {y});" + "\n")
+                    
+                # Draw Vertical Lines
                 # Left Border
-                f.write(rf"\draw[bordergray] (0, 0) -- (0, {GRID_H});" + "\n")
-                # Month Col Separator
-                f.write(rf"\draw[bordergray] ({SUMMARY_MONTH_COL_W}, 0) -- ({SUMMARY_MONTH_COL_W}, {GRID_H});" + "\n")
+                f.write(rf"\draw[bordergray] (0, 0) -- (0, {grid_h});" + "\n")
+                # Day Num Separator
+                f.write(rf"\draw[bordergray] ({DAY_NUM_W}, 0) -- ({DAY_NUM_W}, {grid_h});" + "\n")
                 # Year Columns
-                for i in range(NUM_YEARS):
-                    x = SUMMARY_MONTH_COL_W + ((i + 1) * SUMMARY_YEAR_COL_W)
-                    f.write(rf"\draw[bordergray] ({x}, 0) -- ({x}, {GRID_H});" + "\n")
-                
+                for i in range(10):
+                    x = DAY_NUM_W + (i + 1) * YEAR_COL_W
+                    f.write(rf"\draw[bordergray] ({x}, 0) -- ({x}, {grid_h});" + "\n")
+
                 # --- CONTENT ---
                 
-                # 1. Year Headers (Row 0)
-                header_y = GRID_H - (HEADER_ROW_H / 2)
-                for i in range(NUM_YEARS):
+                # 1. Day Numbers (Column 0)
+                for day in range(1, days_in_month + 1):
+                    y_center = grid_h - (day * ROW_H) - (ROW_H / 2)
+                    f.write(rf"\node[anchor=center] at ({DAY_NUM_W/2}, {y_center}) {{\small \textbf{{{day}}}}};" + "\n")
+                    
+                # 2. Year Headers (Row 0)
+                header_y = grid_h - (ROW_H / 2)
+                for i in range(10):
                     curr_year = START_YEAR + i
-                    header_x = SUMMARY_MONTH_COL_W + (i * SUMMARY_YEAR_COL_W) + (SUMMARY_YEAR_COL_W / 2)
+                    header_x = DAY_NUM_W + (i * YEAR_COL_W) + (YEAR_COL_W / 2)
                     f.write(rf"\node[anchor=center] at ({header_x}, {header_y}) {{\textbf{{{curr_year}}}}};" + "\n")
-                
-                # 2. Month Labels (Column 0)
-                for m in range(1, 13):
-                    m_name = calendar.month_name[m]
-                    y_center = GRID_H - HEADER_ROW_H - ((m - 1) * SUMMARY_ROW_H) - (SUMMARY_ROW_H / 2)
-                    f.write(rf"\node[anchor=center] at ({SUMMARY_MONTH_COL_W/2}, {y_center}) {{\textbf{{{m_name}}}}};" + "\n")
-                
-                # 3. Guide Lines in Cells
-                # 3 lines per cell
-                line_spacing = SUMMARY_ROW_H / 4
-                for m in range(1, 13):
-                    row_top_y = GRID_H - HEADER_ROW_H - ((m - 1) * SUMMARY_ROW_H)
-                    for l in range(1, 4):
-                        y_line = row_top_y - (l * line_spacing)
-                        f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] ({SUMMARY_MONTH_COL_W}, {y_line}) -- ({GRID_W}, {y_line});" + "\n")
+                    
+                # 3. Day Cells
+                for day in range(1, days_in_month + 1):
+                    row_top_y = grid_h - (day * ROW_H)
+                    for i in range(10):
+                        curr_year = START_YEAR + i
+                        col_left_x = DAY_NUM_W + (i * YEAR_COL_W)
+                        dow = get_day_of_week(curr_year, month, day)[:2]
+                        color_cmd = r"\color{sundayred}" if dow == "Su" and SUNDAYS_RED else ""
+                        f.write(rf"\node[anchor=north west, inner sep=1pt] at ({col_left_x + 1}, {row_top_y - 1}) {{\tiny {color_cmd} {dow}}};" + "\n")
 
                 f.write(r"\end{tikzpicture}" + "\n")
-                f.write(r"\end{landscape}" + "\n")
                 f.write(r"\newpage" + "\n")
                 nonlocal physical_page_count
                 physical_page_count += 1
             
             return page_num + 1
 
-        # Iterate through months to ensure proper pagination (Start Month on Left Page)
+        # Removed old render_event_list definition as it is now defined earlier
+
+
+        # Iterate through months to ensure proper pagination (Start Month on Right/Odd Page)
         for month in range(1, 13):
             # Collect days for this month
             month_days = []
@@ -716,17 +694,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             if not month_days:
                 continue
 
-            # Ensure we start on an Even (Left) page for the new month
-            if page_num % 2 != 0:
-                if is_test_content("MONTH_SUMMARY", month=month):
-                    ensure_parity(page_num)
-                    f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
-                    f.write(r"\mbox{} \newpage" + "\n")
-                    physical_page_count += 1
-                page_num += 1
-            
-            # --- MONTH SUMMARY SPREAD ---
-            # Insert the 2-page summary before the daily pages
+            # --- MONTH SUMMARY (1 Page) ---
+            # Logic inside generate_month_summary ensures it starts on Odd page
             page_num = generate_month_summary(month, page_num)
 
             # Iterate through days in chunks
@@ -750,9 +719,10 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 ensure_parity(page_num)
                 f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
 
-                for col_idx, (month, day) in enumerate(chunk):
-                    month_name = calendar.month_name[month].upper()
+                # Check for Trailing Blank Column
+                has_blank_col = (len(chunk) == 1 and DAYS_PER_PAGE == 2)
 
+                for col_idx in range(DAYS_PER_PAGE):
                     # Separator between columns
                     if col_idx > 0:
                         f.write(r"\hfill" + "\n")
@@ -760,148 +730,158 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     # Start Column Minipage
                     f.write(rf"\begin{{minipage}}[t]{{{COL_WIDTH}mm}}" + "\n")
 
-                    # Determine Alignment for this column
-                    align_right = False
+                    # Determine Content for this Column
+                    if col_idx < len(chunk):
+                        # Render Daily Content
+                        month, day = chunk[col_idx]
+                        month_name = calendar.month_name[month].upper()
 
-                    # Determine if this is an Inner or Outer column
-                    # Even Page (Left): Col 0 = Outer, Col 1 = Inner
-                    # Odd Page (Right): Col 0 = Inner, Col 1 = Outer
-                    is_inner_col = False
-                    if page_num % 2 == 0:  # Even
-                        if col_idx == 1:
-                            is_inner_col = True
-                    else:  # Odd
-                        if col_idx == 0:
-                            is_inner_col = True
-
-                    if align_mode == "mirrored":
-                        if page_num % 2 != 0:  # Odd/Right Page
-                            align_right = True
-                        else:  # Even/Left Page
-                            align_right = False
-                    elif align_mode == "left":
+                        # Determine Alignment for this column
                         align_right = False
 
-                    # --- HEADER LOGIC ---
-                    f.write(rf"\begin{{minipage}}[t][{HEADER_H}mm]{{\textwidth}}")
+                        # Determine if this is an Inner or Outer column
+                        # Even Page (Left): Col 0 = Outer, Col 1 = Inner
+                        # Odd Page (Right): Col 0 = Inner, Col 1 = Outer
+                        is_inner_col = False
+                        if page_num % 2 == 0:  # Even
+                            if col_idx == 1:
+                                is_inner_col = True
+                        else:  # Odd
+                            if col_idx == 0:
+                                is_inner_col = True
 
-                    # Determine content parts
-                    day_str = rf"\huge \textbf{{{day}}}"
-                    month_str = rf"\huge \textbf{{{month_name}}}"
+                        if align_mode == "mirrored":
+                            if page_num % 2 != 0:  # Odd/Right Page
+                                align_right = True
+                            else:  # Even/Left Page
+                                align_right = False
+                        elif align_mode == "left":
+                            align_right = False
 
-                    # Determine if we show month
-                    show_month = True
-                    if DAYS_PER_PAGE == 2 and is_inner_col:
-                        # Generally hide month on inner columns to reduce clutter
-                        show_month = False
-                        # EXCEPTION: Always show month on the last day of the month
-                        if day == days_in_month:
-                            show_month = True
+                        # --- HEADER LOGIC ---
+                        f.write(rf"\begin{{minipage}}[t][{HEADER_H}mm]{{\textwidth}}")
 
-                    # Build the header line
-                    if align_right:
-                        # Labels on Right (Right Page)
-                        f.write(r"\hfill ")
-                        if show_month:
-                            f.write(rf"{month_str} \quad ")
-                        f.write(rf"\makebox[{YEAR_LABEL_WIDTH}mm][r]{{{day_str}}}")
-                    else:
-                        # Labels on Left (Left Page)
-                        f.write(rf"\makebox[{YEAR_LABEL_WIDTH}mm][l]{{{day_str}}}")
-                        if show_month:
-                            f.write(rf" \quad {month_str}")
-                        f.write(r" \hfill")
+                        # Determine content parts
+                        day_str = rf"\huge \textbf{{{day}}}"
+                        month_str = rf"\huge \textbf{{{month_name}}}"
 
-                    f.write(r"\end{minipage}")
-                    f.write(r"\par \nointerlineskip")
+                        # Determine if we show month
+                        show_month = True
+                        if DAYS_PER_PAGE == 2 and is_inner_col:
+                            # Generally hide month on inner columns to reduce clutter
+                            show_month = False
+                            # EXCEPTION: Always show month on the last day of the month
+                            if day == days_in_month:
+                                show_month = True
 
-                    # --- 10 YEAR BLOCKS ---
-                    for y_idx in range(NUM_YEARS):
-                        curr_year = START_YEAR + y_idx
-                        weekday = get_day_of_week(curr_year, month, day)
+                        # Build the header line
+                        if align_right:
+                            # Labels on Right (Right Page)
+                            f.write(r"\hfill ")
+                            if show_month:
+                                f.write(rf"{month_str} \quad ")
+                            f.write(rf"\makebox[{YEAR_LABEL_WIDTH}mm][r]{{{day_str}}}")
+                        else:
+                            # Labels on Left (Left Page)
+                            f.write(rf"\makebox[{YEAR_LABEL_WIDTH}mm][l]{{{day_str}}}")
+                            if show_month:
+                                f.write(rf" \quad {month_str}")
+                            f.write(r" \hfill")
 
-                        is_leap_year = calendar.isleap(curr_year)
-                        is_feb_29 = (month == 2 and day == 29)
-                        skip_content = is_feb_29 and not is_leap_year
+                        f.write(r"\end{minipage}")
+                        f.write(r"\par \nointerlineskip")
 
-                        if not skip_content:
-                            label_year = f"{curr_year}"
-                            label_day = f"{weekday}"
-                            if SUNDAYS_RED and weekday == "Sun":
-                                day_color = "sundayred"
-                            else:
-                                day_color = "textgray"
+                        # --- 10 YEAR BLOCKS ---
+                        for y_idx in range(NUM_YEARS):
+                            curr_year = START_YEAR + y_idx
+                            weekday = get_day_of_week(curr_year, month, day)
 
-                        # --- DRAW THE BLOCK ---
-                        f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm, trim left=0mm, trim right={COL_WIDTH}mm]" + "\n")
+                            is_leap_year = calendar.isleap(curr_year)
+                            is_feb_29 = (month == 2 and day == 29)
+                            skip_content = is_feb_29 and not is_leap_year
 
-                        w = COL_WIDTH
-                        h = BLOCK_H
+                            if not skip_content:
+                                label_year = f"{curr_year}"
+                                label_day = f"{weekday}"
+                                if SUNDAYS_RED and weekday == "Sun":
+                                    day_color = "sundayred"
+                                else:
+                                    day_color = "textgray"
 
-                        f.write(rf"\path[use as bounding box] (0,0) rectangle ({w}, {h});" + "\n")
+                            # --- DRAW THE BLOCK ---
+                            f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm, trim left=0mm, trim right={COL_WIDTH}mm]" + "\n")
 
-                        line_spacing = h / NUM_WRITING_LINES
-                        circle_radius = line_spacing * 0.25
+                            w = COL_WIDTH
+                            h = BLOCK_H
 
-                        if not skip_content:
-                            # Align labels to match header alignment
-                            if align_right:
-                                f.write(rf"\node[anchor=north east, text width={YEAR_LABEL_WIDTH}mm, align=right, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at ({w},{h}) {{\textbf{{{label_year}}}\\ \small \color{{{day_color}}} {label_day}}};" + "\n")
-                            else:
-                                f.write(rf"\node[anchor=north west, text width={YEAR_LABEL_WIDTH}mm, align=left, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at (0,{h}) {{\textbf{{{label_year}}}\\ \small \color{{{day_color}}} {label_day}}};" + "\n")
+                            f.write(rf"\path[use as bounding box] (0,0) rectangle ({w}, {h});" + "\n")
 
-                        # Top Border (First block only)
-                        if y_idx == 0:
-                            f.write(rf"\draw[bordergray] (0, {h}) -- ({w}, {h});" + "\n")
+                            line_spacing = h / NUM_WRITING_LINES
+                            circle_radius = line_spacing * 0.25
 
-                        # Guide Lines
-                        if not skip_content:
-                            guide_gap = YEAR_LABEL_WIDTH + 1
-
-                            # Special Events Injection
-                            events = get_special_events(curr_year, month, day, use_whimsy=whimsy)
-                            if events:
-                                event_str = ", ".join(events)
-                                event_str = event_str.replace("&", r"\&")
-                                y_text = h - 0.5 * line_spacing
+                            if not skip_content:
+                                # Align labels to match header alignment
                                 if align_right:
-                                    # Text on Left (Inner edge)
-                                    # Circle is at cx = circle_radius + 1
-                                    # Text should start after circle
-                                    x_text = (circle_radius + 1) + circle_radius + 1
-                                    f.write(rf"\node[anchor=west, inner sep=0, text=textgray, font=\footnotesize] at ({x_text}, {y_text}) {{{event_str}}};" + "\n")
+                                    f.write(rf"\node[anchor=north east, text width={YEAR_LABEL_WIDTH}mm, align=right, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at ({w},{h}) {{\textbf{{{label_year}}}\\ \small \color{{{day_color}}} {label_day}}};" + "\n")
                                 else:
-                                    # Text on Right (after label)
-                                    f.write(rf"\node[anchor=west, inner sep=0, text=textgray, font=\footnotesize] at ({guide_gap} + 1, {y_text}) {{{event_str}}};" + "\n")
+                                    f.write(rf"\node[anchor=north west, text width={YEAR_LABEL_WIDTH}mm, align=left, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at (0,{h}) {{\textbf{{{label_year}}}\\ \small \color{{{day_color}}} {label_day}}};" + "\n")
 
-                            # Circles for first two lines (Inside end)
-                            for s in range(2):  # First two spaces
-                                y_circle = h - (s + 0.5) * line_spacing
-                                if align_right:  # Inner is Left
-                                    cx = circle_radius + 1
-                                else:  # Inner is Right
-                                    cx = w - circle_radius - 1
-                                f.write(rf"\draw[guidegray] ({cx}, {y_circle}) circle ({circle_radius});" + "\n")
+                            # Top Border (First block only)
+                            if y_idx == 0:
+                                f.write(rf"\draw[bordergray] (0, {h}) -- ({w}, {h});" + "\n")
 
-                            # Continuation 'p' prompt
-                            f.write(rf"\node[anchor=base east, inner sep=0, text=textgray] at ({w}-6, 2.5) {{\small $\vec{{p}}$}};" + "\n")
+                            # Guide Lines
+                            if not skip_content:
+                                guide_gap = YEAR_LABEL_WIDTH + 1
 
-                            for l in range(1, NUM_WRITING_LINES):
-                                y_pos = h - l * line_spacing
-                                if l == 1:
-                                    # Shortened Guide Line
+                                # Special Events Injection
+                                events = get_special_events(curr_year, month, day, use_whimsy=whimsy)
+                                if events:
+                                    event_str = ", ".join(events)
+                                    event_str = event_str.replace("&", r"\&")
+                                    y_text = h - 0.5 * line_spacing
                                     if align_right:
-                                        f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] (0, {y_pos}) -- ({w} - {guide_gap}, {y_pos});" + "\n")
+                                        # Text on Left (Inner edge)
+                                        # Circle is at cx = circle_radius + 1
+                                        # Text should start after circle
+                                        x_text = (circle_radius + 1) + circle_radius + 1
+                                        f.write(rf"\node[anchor=west, inner sep=0, text=textgray, font=\footnotesize] at ({x_text}, {y_text}) {{{event_str}}};" + "\n")
                                     else:
-                                        f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] ({guide_gap}, {y_pos}) -- ({w}, {y_pos});" + "\n")
-                                else:
-                                    f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] (0, {y_pos}) -- ({w}, {y_pos});" + "\n")
+                                        # Text on Right (after label)
+                                        f.write(rf"\node[anchor=west, inner sep=0, text=textgray, font=\footnotesize] at ({guide_gap} + 1, {y_text}) {{{event_str}}};" + "\n")
 
-                        # Bottom Divider
-                        f.write(rf"\draw[bordergray] (0, 0) -- ({w}, 0);" + "\n")
+                                # Circles for first two lines (Inside end)
+                                for s in range(2):  # First two spaces
+                                    y_circle = h - (s + 0.5) * line_spacing
+                                    if align_right:  # Inner is Left
+                                        cx = circle_radius + 1
+                                    else:  # Inner is Right
+                                        cx = w - circle_radius - 1
+                                    f.write(rf"\draw[guidegray] ({cx}, {y_circle}) circle ({circle_radius});" + "\n")
 
-                        f.write(r"\end{tikzpicture}" + "\n")
-                        f.write(r"\par \nointerlineskip" + "\n")
+                                # Continuation 'p' prompt
+                                f.write(rf"\node[anchor=base east, inner sep=0, text=textgray] at ({w}-6, 2.5) {{\small $\vec{{p}}$}};" + "\n")
+
+                                for l in range(1, NUM_WRITING_LINES):
+                                    y_pos = h - l * line_spacing
+                                    if l == 1:
+                                        # Shortened Guide Line
+                                        if align_right:
+                                            f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] (0, {y_pos}) -- ({w} - {guide_gap}, {y_pos});" + "\n")
+                                        else:
+                                            f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] ({guide_gap}, {y_pos}) -- ({w}, {y_pos});" + "\n")
+                                    else:
+                                        f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] (0, {y_pos}) -- ({w}, {y_pos});" + "\n")
+
+                            # Bottom Divider
+                            f.write(rf"\draw[bordergray] (0, 0) -- ({w}, 0);" + "\n")
+
+                            f.write(r"\end{tikzpicture}" + "\n")
+                            f.write(r"\par \nointerlineskip" + "\n")
+                    
+                    elif has_blank_col:
+                        # Render Event List in the blank column -> CHANGED: Leave blank
+                        f.write(r"\hfill" + "\n")
 
                     # End Column Minipage
                     f.write(r"\end{minipage}" + "\n")
@@ -910,11 +890,6 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 f.write(r"\newpage" + "\n")
                 physical_page_count += 1
                 page_num += 1
-
-            # --- YEAR/MONTH SUMMARY (For Short Months) ---
-            # Feb, Apr, Jun, Sep, Nov
-            if month in [2, 4, 6, 9, 11]:
-                page_num = generate_year_month_summary(month, page_num)
 
         # --- EXTRA PAGES ---
         # 10 pages (5 sheets) of lined notes

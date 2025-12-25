@@ -18,6 +18,8 @@ To engineer a "Forever Journal" layout that fits 10 years of daily entries onto 
 *   **Writing Space:** 5 lines per year block.
 *   **Margins:** Mirror Margins (Inner gutter shift) to accommodate hole punching.
 *   **Alignment:** Mirrored layout (Day labels align to the outer edge of the page).
+*   **Pagination:** Month Summaries are forced to start on Even (Left) pages to ensure the first daily spread (Day 1-2) opens correctly.
+*   **Event Lists:** Full-page "Event List" spreads are generated on blank filler pages to maximize utility. These feature a 6-column layout (Date | Event | Date | Event | Date | Event) for tracking lists across the 10 years.
 
 ## Tech Stack
 *   **Logic:** Python 3 (`forever_journal.py`)
