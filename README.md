@@ -32,6 +32,7 @@ To engineer a "Forever Journal" layout that fits 10 years of daily entries onto 
 ## Requirements
 *   Python 3.x
 *   LaTeX Distribution (e.g., TeX Live, MacTeX) with `pdflatex`.
+*   LaTeX Packages: `geometry`, `tikz`, `fancyhdr`, `fontawesome5` (for whimsy mode).
 
 ## Usage
 
@@ -41,6 +42,9 @@ Run the script. It will generate the LaTeX file in `output/` and automatically c
 ```bash
 # Standard Generation (Full Journal)
 python3 forever_journal.py --spread 4up --align mirrored
+
+# Whimsy Mode (Adds icons and colors to special days)
+python3 forever_journal.py --spread 4up --align mirrored --whimsy
 
 # Test Mode (Generates a small subset of pages for testing layout)
 # Captures: Title, Feb Summary, Feb 1-4, Feb 29, YM1, Dec 29-31, Extra Pages, Source Code.

@@ -67,11 +67,21 @@ BLOCK_H = USABLE_H / NUM_YEARS
 SPECIAL_DAYS = {
     "annual": [
         {"name": "New Year's Day", "month": 1, "day": 1},
+        {"name": "MLK Day", "rule": "3rd Mon Jan"},
+        {"name": "Valentine's Day", "month": 2, "day": 14},
         {"name": "President's Day", "rule": "3rd Mon Feb"},
+        {"name": "St. Patrick's Day", "month": 3, "day": 17},
         {"name": "Easter", "rule": "easter"},
+        {"name": "Mother's Day", "rule": "2nd Sun May"},
         {"name": "Memorial Day", "rule": "last Mon May"},
+        {"name": "Father's Day", "rule": "3rd Sun Jun"},
+        {"name": "Juneteenth", "month": 6, "day": 19},
         {"name": "Independence Day", "month": 7, "day": 4},
         {"name": "Labor Day", "rule": "1st Mon Sep"},
+        {"name": "Columbus Day", "rule": "2nd Mon Oct"},
+        {"name": "Halloween", "month": 10, "day": 31},
+        {"name": "Election Day", "rule": "election"},
+        {"name": "Veterans Day", "month": 11, "day": 11},
         {"name": "Thanksgiving", "rule": "4th Thu Nov"},
         {"name": "Christmas", "month": 12, "day": 25},
     ],
@@ -107,6 +117,13 @@ def calculate_easter(year):
     day = ((h + l - 7 * m + 114) % 31) + 1
     return month, day
 
+def calculate_election_day(year):
+    """Calculates US Election Day (Tuesday after the first Monday in November)."""
+    # Get 1st Monday of November (Month 11, Weekday 0)
+    first_monday = get_nth_weekday_of_month(year, 11, 0, 1)
+    # Election Day is the next day (Tuesday)
+    return 11, first_monday + 1
+
 def get_nth_weekday_of_month(year, month, weekday_idx, n):
     """
     Returns the day of the month for the Nth occurrence of a weekday.
@@ -128,6 +145,8 @@ def parse_rule(rule, year):
     parts = rule.split()
     if rule == "easter":
         return calculate_easter(year)
+    if rule == "election":
+        return calculate_election_day(year)
     
     if len(parts) == 3:
         # e.g. "3rd Mon Feb" or "last Mon May"
@@ -155,18 +174,26 @@ def parse_rule(rule, year):
         
     return None, None
 
-def get_special_events(year, month, day):
+def get_special_events(year, month, day, use_whimsy=False):
     events = []
     
     # Check Annual
     for item in SPECIAL_DAYS["annual"]:
         if "month" in item and "day" in item:
             if item["month"] == month and item["day"] == day:
-                events.append(item["name"])
+                name = item["name"]
+                if use_whimsy and name in WHIMSY_STYLES:
+                    style = WHIMSY_STYLES[name]
+                    name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                events.append(name)
         elif "rule" in item:
             m, d = parse_rule(item["rule"], year)
             if m == month and d == day:
-                events.append(item["name"])
+                name = item["name"]
+                if use_whimsy and name in WHIMSY_STYLES:
+                    style = WHIMSY_STYLES[name]
+                    name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                events.append(name)
                 
     # Check Counting
     for item in SPECIAL_DAYS["counting"]:
@@ -175,7 +202,18 @@ def get_special_events(year, month, day):
         if int(m_str) == month and int(d_str) == day:
             years_elapsed = year - int(y_str)
             if years_elapsed >= 0:
-                events.append(f"{item['name']} ({years_elapsed}y)")
+                name = item['name']
+                event_type = item.get('type', 'Birthday')
+                
+                if use_whimsy:
+                    # Determine style based on type
+                    style_key = "Birthday" if "Birthday" in event_type else "Anniversary"
+                    if style_key in WHIMSY_STYLES:
+                        style = WHIMSY_STYLES[style_key]
+                        # Icon before name
+                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                
+                events.append(f"{name} ({years_elapsed}y)")
                 
     return events
 
@@ -188,8 +226,31 @@ def get_day_of_week(year, month, day):
     except ValueError:
         return ""
 
+# --- WHIMSY CONFIGURATION ---
+WHIMSY_STYLES = {
+    "New Year's Day": {"icon": r"\faGlassCheers", "color": "purple"},
+    "MLK Day": {"icon": r"\faHandsHelping", "color": "black"},
+    "Valentine's Day": {"icon": r"\faHeart", "color": "magenta"},
+    "President's Day": {"icon": r"\faFlagUsa", "color": "blue"},
+    "St. Patrick's Day": {"icon": r"\faLeaf", "color": "green"}, # Leaf as Shamrock
+    "Easter": {"icon": r"\faEgg", "color": "violet"},
+    "Mother's Day": {"icon": r"\faHeart", "color": "pink"},
+    "Memorial Day": {"icon": r"\faFlagUsa", "color": "blue"},
+    "Father's Day": {"icon": r"\faUserTie", "color": "blue"},
+    "Juneteenth": {"icon": r"\faStar", "color": "black"},
+    "Independence Day": {"icon": r"\faStar", "color": "blue"},
+    "Labor Day": {"icon": r"\faHammer", "color": "brown"},
+    "Columbus Day": {"icon": r"\faShip", "color": "blue"},
+    "Halloween": {"icon": r"\faGhost", "color": "orange"},
+    "Election Day": {"icon": r"\faVoteYea", "color": "blue"},
+    "Veterans Day": {"icon": r"\faMedal", "color": "olive"},
+    "Thanksgiving": {"icon": r"\faUtensils", "color": "brown"},
+    "Christmas": {"icon": r"\faTree", "color": "red"},
+    "Birthday": {"icon": r"\faBirthdayCake", "color": "teal"},
+    "Anniversary": {"icon": r"\faRing", "color": "orange"},
+}
 
-def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False, include_source=False, toc_enabled=False):
+def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False, include_source=False, toc_enabled=False, whimsy=False):
     """
     Generates the LaTeX source file for the journal.
 
@@ -200,6 +261,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         no_compile (bool): If True, skips automatic PDF compilation.
         include_source (bool): If True, appends the script source code to the PDF.
         toc_enabled (bool): If True, includes a Table of Contents.
+        whimsy (bool): If True, adds icons and colors to special days.
     """
     end_year = START_YEAR + NUM_YEARS - 1
     output_base = f"forever_journal_{START_YEAR}_{end_year}"
@@ -255,6 +317,15 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 # Feb 29 (Leap check)
                 if day == 29:
                     return True
+            
+            # Anniversary: June 30
+            if month == 6 and day == 30:
+                return True
+                
+            # Birthdays: Nov 29, 30
+            if month == 11 and day in [29, 30]:
+                return True
+
             if month == 12:
                 # Dec 29-31
                 if day in [29, 30, 31]:
@@ -307,6 +378,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 \usepackage{listings} % For source code listing
 \usepackage{pdflscape} % For landscape pages
 \usepackage{multicol} % For multi-column layout
+\usepackage{fontawesome5} % For icons (whimsy mode)
 
 \pagestyle{fancy}
 \fancyhf{} % clear all headers and footers
@@ -350,15 +422,27 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"\begin{tabular}{ll}" + "\n")
             f.write(r"\textbf{Annual} & \textbf{Rule/Date} \\" + "\n")
             for item in SPECIAL_DAYS["annual"]:
+                name = item['name']
+                if whimsy and name in WHIMSY_STYLES:
+                    style = WHIMSY_STYLES[name]
+                    name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+
                 if "rule" in item:
                     rule = item["rule"]
                 else:
                     rule = f"{calendar.month_abbr[item['month']]} {item['day']}"
-                f.write(rf"{item['name']} & {rule} \\" + "\n")
+                f.write(rf"{name} & {rule} \\" + "\n")
             f.write(r"& \\" + "\n")
             f.write(r"\textbf{Counting} & \textbf{Date} \\" + "\n")
             for item in SPECIAL_DAYS["counting"]:
                 name = item['name'].replace("&", r"\&")
+                event_type = item.get('type', 'Birthday')
+                if whimsy:
+                    style_key = "Birthday" if "Birthday" in event_type else "Anniversary"
+                    if style_key in WHIMSY_STYLES:
+                        style = WHIMSY_STYLES[style_key]
+                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+
                 f.write(rf"{name} ({item['type']}) & {item['date']} \\" + "\n")
             f.write(r"\end{tabular}" + "\n")
             f.write(r"}" + "\n")
@@ -775,7 +859,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                             guide_gap = YEAR_LABEL_WIDTH + 1
 
                             # Special Events Injection
-                            events = get_special_events(curr_year, month, day)
+                            events = get_special_events(curr_year, month, day, use_whimsy=whimsy)
                             if events:
                                 event_str = ", ".join(events)
                                 event_str = event_str.replace("&", r"\&")
@@ -1024,6 +1108,7 @@ if __name__ == "__main__":
     parser.add_argument("--no-compile", action="store_true", help="Skip automatic PDF compilation")
     parser.add_argument("--include-source", action="store_true", help="Append source code to the PDF")
     parser.add_argument("--toc", action="store_true", help="Include Table of Contents (requires 2-pass compilation)")
+    parser.add_argument("--whimsy", action="store_true", help="Add icons and colors to special days")
     args = parser.parse_args()
 
-    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source, toc_enabled=args.toc)
+    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source, toc_enabled=args.toc, whimsy=args.whimsy)
