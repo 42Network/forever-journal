@@ -18,6 +18,7 @@ To engineer a "Forever Journal" layout that fits 10 years of daily entries onto 
 *   **Writing Space:** 5 lines per year block.
 *   **Margins:** Mirror Margins (Inner gutter shift) to accommodate hole punching.
 *   **Alignment:** Mirrored layout (Day labels align to the outer edge of the page).
+*   **Edge Indexing:** Black navigation tabs on the outer edge of every page for quick month access. Tabs are visible when the book is closed.
 *   **Pagination:** Month Summaries are forced to start on Even (Left) pages to ensure the first daily spread (Day 1-2) opens correctly.
 *   **Event Lists:** Full-page "Event List" spreads are generated on blank filler pages to maximize utility. These feature a 6-column layout (Date | Event | Date | Event | Date | Event) for tracking lists across the 10 years.
 
@@ -58,6 +59,7 @@ python3 forever_journal.py --test --spread 4up --align mirrored
 *   `--no-compile`: Skip the automatic PDF compilation step.
 *   `--include-source`: Append the source code of the script to the end of the PDF.
 *   `--toc`: Include a Table of Contents on the Title Page (requires 2-pass compilation).
+*   `--single-pass`: Run `pdflatex` only once. Faster for quick checks, but Edge Indexing and ToC references may be incorrect.
 
 ## Special Day Annotations
 The journal supports annotating special days (Holidays, Birthdays, Anniversaries) directly into the writing grid. These are configured in the `SPECIAL_DAYS` dictionary within `forever_journal.py`.
@@ -75,10 +77,12 @@ SPECIAL_DAYS = {
         # Special Rules
         {"name": "Easter", "rule": "easter"},
     ],
-    "counting": [
+    "birthdays": [
         # Calculates "Years Since" (e.g., "Nathan (58y)")
-        {"name": "Nathan", "type": "Birthday", "date": "1968-11-29"},
-        {"name": "Nathan & Dana", "type": "Anniversary", "date": "1994-06-30"},
+        {"name": "Nathan", "date": "1968-11-29"},
+    ],
+    "anniversaries": [
+        {"name": "Nathan & Dana", "date": "1994-06-30"},
     ]
 }
 ```

@@ -36,7 +36,7 @@ PAPER = PAPER_SIZES[CURRENT_PAPER_KEY]
 # Physical Margins (mm)
 # Bottom margin set to 10mm to prevent printer cutoff
 TARGET_MARGIN_INNER = 13
-TARGET_MARGIN_OUTER = 5
+TARGET_MARGIN_OUTER = 6
 TARGET_MARGIN_TOP = 5
 TARGET_MARGIN_BOTTOM = 10
 
@@ -85,17 +85,37 @@ SPECIAL_DAYS = {
         {"name": "Thanksgiving", "rule": "4th Thu Nov"},
         {"name": "Christmas", "month": 12, "day": 25},
     ],
-    "counting": [
-        {"name": "Nathan", "type": "Birthday", "date": "1968-11-29"},
-        {"name": "Dana", "type": "Birthday", "date": "1968-09-26"},
-        {"name": "Benjamin", "type": "Birthday", "date": "1995-08-18"},
-        {"name": "Thaddeus", "type": "Birthday", "date": "1996-11-30"},
-        {"name": "Eli", "type": "Birthday", "date": "2000-03-30"},
-        {"name": "Isaac", "type": "Birthday", "date": "2003-08-28"},
-        {"name": "Lydia", "type": "Birthday", "date": "2005-01-19"},
-        {"name": "Keren", "type": "Birthday", "date": "2007-09-11"},
-        {"name": "Nathan & Dana", "type": "Anniversary", "date": "1994-06-30"},
-        {"name": "Bill & Pat", "type": "Anniversary", "date": "1967-07-07"},
+    "birthdays": [
+        {"name": "Nathan", "date": "1968-11-29"},
+        {"name": "Dana", "date": "1968-09-26"},
+        {"name": "Benjamin", "date": "1995-08-18"},
+        {"name": "Thaddeus", "date": "1996-11-30"},
+        {"name": "Eli", "date": "2000-03-30"},
+        {"name": "Isaac", "date": "2003-08-28"},
+        {"name": "Lydia", "date": "2005-01-19"},
+        {"name": "Keren", "date": "2007-09-11"},
+        {"name": "Aaron", "date": "1971-02-28"},
+        {"name": "Esther", "date": "1973-01-24"},
+        {"name": "Rachel", "date": "1975-08-16"},
+        {"name": "Beth", "date": "1978-10-07"},
+        {"name": "Sarah", "date": "1984-03-26"},
+        {"name": "Bill", "date": "1943-03-09"},
+        {"name": "Pat", "date": "1945-04-15"},
+        {"name": "Keith", "date": "1949-10-25"},
+        {"name": "Judy", "date": "1950-11-26"},
+        {"name": "Amy", "date": "1971-04-19"},
+        {"name": "Monique", "date": "1996-09-28"},
+        {"name": "Luci & True", "date": "2023-03-21"},
+        {"name": "Tommy", "date": "2024-07-23"},
+        {"name": "Thaddeus II", "date": "2025-10-11"},
+    ],
+    "anniversaries": [
+        {"name": "Nathan & Dana", "date": "1994-06-30"},
+        {"name": "Bill & Pat", "date": "1967-07-07"},
+        {"name": "Keith & Judy", "date": "1967-11-18"},
+        {"name": "Ben & Mo", "date": "2019-08-02"},
+        {"name": "Tad & Missa", "date": "2022-12-21"},
+        {"name": "Aub & Tom", "date": "2024-08-16"},
     ]
 }
 
@@ -195,22 +215,34 @@ def get_special_events(year, month, day, use_whimsy=False):
                     name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
                 events.append(name)
                 
-    # Check Counting
-    for item in SPECIAL_DAYS["counting"]:
+    # Check Birthdays
+    for item in SPECIAL_DAYS["birthdays"]:
         # Parse date "YYYY-MM-DD"
         y_str, m_str, d_str = item["date"].split("-")
         if int(m_str) == month and int(d_str) == day:
             years_elapsed = year - int(y_str)
             if years_elapsed >= 0:
                 name = item['name']
-                event_type = item.get('type', 'Birthday')
                 
                 if use_whimsy:
-                    # Determine style based on type
-                    style_key = "Birthday" if "Birthday" in event_type else "Anniversary"
-                    if style_key in WHIMSY_STYLES:
-                        style = WHIMSY_STYLES[style_key]
-                        # Icon before name
+                    style = WHIMSY_STYLES.get("Birthday")
+                    if style:
+                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                
+                events.append(f"{name} ({years_elapsed}y)")
+
+    # Check Anniversaries
+    for item in SPECIAL_DAYS["anniversaries"]:
+        # Parse date "YYYY-MM-DD"
+        y_str, m_str, d_str = item["date"].split("-")
+        if int(m_str) == month and int(d_str) == day:
+            years_elapsed = year - int(y_str)
+            if years_elapsed >= 0:
+                name = item['name']
+                
+                if use_whimsy:
+                    style = WHIMSY_STYLES.get("Anniversary")
+                    if style:
                         name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
                 
                 events.append(f"{name} ({years_elapsed}y)")
@@ -250,7 +282,7 @@ WHIMSY_STYLES = {
     "Anniversary": {"icon": r"\faRing", "color": "orange"},
 }
 
-def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False, include_source=False, toc_enabled=False, whimsy=False):
+def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False, include_source=False, toc_enabled=False, whimsy=False, single_pass=False):
     """
     Generates the LaTeX source file for the journal.
 
@@ -262,6 +294,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         include_source (bool): If True, appends the script source code to the PDF.
         toc_enabled (bool): If True, includes a Table of Contents.
         whimsy (bool): If True, adds icons and colors to special days.
+        single_pass (bool): If True, runs pdflatex only once (faster, but references/overlays may be broken).
     """
     end_year = START_YEAR + NUM_YEARS - 1
     output_base = f"forever_journal_{START_YEAR}_{end_year}"
@@ -283,6 +316,54 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
     # Initialized to 0. Writing Title Page (Page 1) makes it 1.
     physical_page_count = 0
     event_list_counter = 1
+
+    def draw_edge_index(month_idx):
+        """Draws the edge index tab for the given month."""
+        month_name = calendar.month_name[month_idx].upper()
+        
+        # Calculate vertical position
+        # Respect Top and Bottom Margins
+        tab_area_height = PAGE_H - TARGET_MARGIN_TOP - TARGET_MARGIN_BOTTOM
+        segment_height = tab_area_height / 12
+        
+        # Start from Top Margin
+        # Note: yshift is negative downwards from North East/West
+        y_shift = - TARGET_MARGIN_TOP - (month_idx - 1) * segment_height
+        
+        # Determine side based on parity of the CURRENT page being written
+        # We use physical_page_count + 1 because physical_page_count tracks pages *already written*
+        # So the current page is physical_page_count + 1
+        current_physical_page = physical_page_count + 1
+        is_odd = (current_physical_page % 2 != 0)
+        
+        f.write(r"\begin{tikzpicture}[remember picture, overlay]" + "\n")
+        
+        # Box Width: Leave 1mm gap between tab and text body
+        # TARGET_MARGIN_OUTER is 6mm, so box is 5mm.
+        box_width = TARGET_MARGIN_OUTER - 1
+        
+        # Text Alignment: "Bottom Justified" (Aligned to Inner Edge/Spine)
+        # We use \hspace to push the centered text towards the spine.
+        # Box is 5mm. Text is centered. We want it flush with the inner edge.
+        # Adding space to the "top" (outer edge) of the rotated text pushes it "down" (inner edge).
+        spacer = r"\hspace*{1.5mm}" 
+        
+        if is_odd:
+            # Right Page -> Right Edge (North East)
+            # Text rotated -90 (Top to Bottom). Bottom of letters is West (Inner).
+            # We want to push text West. Node centers content.
+            # Content = [Text + Spacer]. Center is shifted Right. Text is shifted Left (West).
+            content = rf"\rotatebox{{-90}}{{\sffamily\bfseries\small {month_name}}}{spacer}"
+            f.write(rf"  \node[fill=black, text=white, anchor=north east, minimum width={box_width}mm, minimum height={segment_height}mm, yshift={y_shift}mm, inner sep=0pt] at (current page.north east) {{{content}}};" + "\n")
+        else:
+            # Left Page -> Left Edge (North West)
+            # Text rotated 90 (Bottom to Top). Bottom of letters is East (Inner).
+            # We want to push text East. Node centers content.
+            # Content = [Spacer + Text]. Center is shifted Left. Text is shifted Right (East).
+            content = rf"{spacer}\rotatebox{{90}}{{\sffamily\bfseries\small {month_name}}}"
+            f.write(rf"  \node[fill=black, text=white, anchor=north west, minimum width={box_width}mm, minimum height={segment_height}mm, yshift={y_shift}mm, inner sep=0pt] at (current page.north west) {{{content}}};" + "\n")
+            
+        f.write(r"\end{tikzpicture}" + "\n")
 
     def render_event_list(event_list_num, width=None):
         """Renders an Event List column or page."""
@@ -507,7 +588,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"\begin{minipage}[t]{0.48\textwidth}" + "\n")
             f.write(r"\centering" + "\n")
             f.write(r"\textbf{Special Days} \par \vspace{2mm}" + "\n")
-            f.write(r"{\small" + "\n")
+            f.write(r"{\scriptsize" + "\n")
             f.write(r"\begin{tabular}{ll}" + "\n")
             f.write(r"\textbf{Annual} & \textbf{Rule/Date} \\" + "\n")
             for item in SPECIAL_DAYS["annual"]:
@@ -521,18 +602,47 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 else:
                     rule = f"{calendar.month_abbr[item['month']]} {item['day']}"
                 f.write(rf"{name} & {rule} \\" + "\n")
+            
+            # Birthdays
             f.write(r"& \\" + "\n")
-            f.write(r"\textbf{Counting} & \textbf{Date} \\" + "\n")
-            for item in SPECIAL_DAYS["counting"]:
+            f.write(r"\textbf{Birthdays} & \textbf{Date} \\" + "\n")
+            
+            # Sort Birthdays by Month, Day
+            sorted_birthdays = sorted(SPECIAL_DAYS["birthdays"], key=lambda x: (int(x['date'].split('-')[1]), int(x['date'].split('-')[2])))
+            
+            for item in sorted_birthdays:
                 name = item['name'].replace("&", r"\&")
-                event_type = item.get('type', 'Birthday')
                 if whimsy:
-                    style_key = "Birthday" if "Birthday" in event_type else "Anniversary"
-                    if style_key in WHIMSY_STYLES:
-                        style = WHIMSY_STYLES[style_key]
+                    style = WHIMSY_STYLES.get("Birthday")
+                    if style:
                         name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                
+                # Format Date: M D, Y
+                dt = datetime.datetime.strptime(item['date'], "%Y-%m-%d")
+                date_str = dt.strftime("%b %-d, %Y")
+                
+                f.write(rf"{name} & {date_str} \\" + "\n")
 
-                f.write(rf"{name} ({item['type']}) & {item['date']} \\" + "\n")
+            # Anniversaries
+            f.write(r"& \\" + "\n")
+            f.write(r"\textbf{Anniversaries} & \textbf{Date} \\" + "\n")
+            
+            # Sort Anniversaries by Month, Day
+            sorted_anniversaries = sorted(SPECIAL_DAYS["anniversaries"], key=lambda x: (int(x['date'].split('-')[1]), int(x['date'].split('-')[2])))
+            
+            for item in sorted_anniversaries:
+                name = item['name'].replace("&", r"\&")
+                if whimsy:
+                    style = WHIMSY_STYLES.get("Anniversary")
+                    if style:
+                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                
+                # Format Date: M D, Y
+                dt = datetime.datetime.strptime(item['date'], "%Y-%m-%d")
+                date_str = dt.strftime("%b %-d, %Y")
+                
+                f.write(rf"{name} & {date_str} \\" + "\n")
+
             f.write(r"\end{tabular}" + "\n")
             f.write(r"}" + "\n")
             f.write(r"\end{minipage}" + "\n")
@@ -674,6 +784,10 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                         f.write(rf"\node[anchor=north west, inner sep=1pt] at ({col_left_x + 1}, {row_top_y - 1}) {{\tiny {color_cmd} {dow}}};" + "\n")
 
                 f.write(r"\end{tikzpicture}" + "\n")
+                
+                # Draw Edge Index
+                draw_edge_index(month)
+                
                 f.write(r"\newpage" + "\n")
                 nonlocal physical_page_count
                 physical_page_count += 1
@@ -886,6 +1000,9 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     # End Column Minipage
                     f.write(r"\end{minipage}" + "\n")
 
+                # Draw Edge Index
+                draw_edge_index(month)
+
                 # End of Page Chunk
                 f.write(r"\newpage" + "\n")
                 physical_page_count += 1
@@ -1052,15 +1169,18 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     output_tex
                 ]
                 
-                # Run twice to resolve references (ToC page numbers) if ToC is enabled
-                if toc_enabled:
+                if single_pass:
+                    print("Compiling (Single Pass)...")
+                    print("Warning: ToC and Edge Index may be incorrect due to missing second pass.")
+                    subprocess.run(cmd, check=True)
+                else:
+                    # Always run twice.
+                    # 1. ToC references (if enabled)
+                    # 2. TikZ [remember picture, overlay] for Edge Indexing (always enabled)
                     print("Pass 1/2...")
                     subprocess.run(cmd, check=True)
                     
-                    print("Pass 2/2 (Resolving references)...")
-                    subprocess.run(cmd, check=True)
-                else:
-                    print("Compiling...")
+                    print("Pass 2/2 (Resolving references & overlays)...")
                     subprocess.run(cmd, check=True)
                 
                 print(f"Success! PDF generated at: {os.path.join(OUTPUT_DIR, output_base + '.pdf')}")
@@ -1084,6 +1204,7 @@ if __name__ == "__main__":
     parser.add_argument("--include-source", action="store_true", help="Append source code to the PDF")
     parser.add_argument("--toc", action="store_true", help="Include Table of Contents (requires 2-pass compilation)")
     parser.add_argument("--whimsy", action="store_true", help="Add icons and colors to special days")
+    parser.add_argument("--single-pass", action="store_true", help="Run pdflatex only once (faster, but ToC/Edge Index may be broken)")
     args = parser.parse_args()
 
-    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source, toc_enabled=args.toc, whimsy=args.whimsy)
+    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source, toc_enabled=args.toc, whimsy=args.whimsy, single_pass=args.single_pass)
