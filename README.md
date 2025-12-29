@@ -15,7 +15,7 @@ To engineer a "Forever Journal" layout that fits 10 years of daily entries onto 
 *   **Density:** 4 Days per Spread (2 Days per Page).
 *   **Columns:** Page is split into 2 vertical columns.
 *   **Rows:** Each column contains **10 Year Blocks** (2026–2035).
-*   **Writing Space:** 5 lines per year block.
+*   **Writing Space:** 6 lines per year block.
 *   **Margins:** Mirror Margins (Inner gutter shift) to accommodate hole punching.
 *   **Alignment:** Mirrored layout (Day labels align to the outer edge of the page).
 *   **Edge Indexing:** Black navigation tabs on the outer edge of every page for quick month access. Tabs are visible when the book is closed.
@@ -31,6 +31,7 @@ To engineer a "Forever Journal" layout that fits 10 years of daily entries onto 
 *   **Rendering:** LaTeX (`pdflatex`)
     *   `geometry`: For precise A4 dimensions and mirror margins.
     *   `tikz`: For drawing writing lines, grids, and guide circles.
+    *   `xcolor`: Uses **CMYK** color model for accurate print reproduction (especially red).
 
 ## Requirements
 *   Python 3.x
@@ -90,7 +91,7 @@ SPECIAL_DAYS = {
 ### Features
 *   **Annual Events:** Supports fixed dates (Month/Day) and variable rules (Nth Weekday of Month, Easter).
 *   **Counting Events:** Automatically calculates the age or anniversary year for the specific journal year (e.g., in 2026, a 1996 birthday shows as "(30y)").
-*   **Title Page Summary:** A table of all configured special days is generated on the Title Page.
+*   **Title Page Summary:** A table of all configured special days is generated on the Title Page, including current age/years for birthdays and anniversaries.
 *   **Grid Injection:** The event name is printed in small text on the first line of the daily block, carefully aligned to avoid writing guides.
 
 ## Extra Pages
@@ -141,3 +142,15 @@ If you are unsure about your printer's hardware margins or alignment:
     ```
 2.  This generates a grid overlay (`margin_test.pdf`).
 3.  Print this page to measure exactly how close to the edge your printer can print and if there is any hardware offset (centering error) you need to account for.
+
+
+### Paper & Print Calibration
+To ensure the 10-year archival quality of the journal and prevent paper deformation, use the following settings on the HP OfficeJet Pro 9015:
+
+Test Prints (Kokuyo KB 64gsm): * Settings: Media: Plain Paper | Quality: Draft
+
+Reason: The 64gsm density is significantly lighter than standard US copy paper. Draft mode reduces ink volume, preventing the paper from curling or "cockling" during the print cycle.
+
+Final Journal (Kokuyo Campus Sarasara): * Settings: Media: Specialty Paper, Matte | Quality: Normal
+
+Reason: Sarasara paper (75-77gsm) handles "Normal" ink loads well, but the Specialty Matte profile optimizes the print head pass speed. This ensures the ink sets correctly on the smooth Japanese finish without smearing, which is vital for double-sided journaling.

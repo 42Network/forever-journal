@@ -18,7 +18,7 @@ import subprocess
 # --- CONFIGURATION: JOURNAL SETTINGS ---
 START_YEAR = 2026
 NUM_YEARS = 10
-NUM_WRITING_LINES = 5
+NUM_WRITING_LINES = 6
 SUNDAYS_RED = True
 OUTPUT_DIR = "output"
 
@@ -36,7 +36,7 @@ PAPER = PAPER_SIZES[CURRENT_PAPER_KEY]
 # Physical Margins (mm)
 # Bottom margin set to 10mm to prevent printer cutoff
 TARGET_MARGIN_INNER = 13
-TARGET_MARGIN_OUTER = 6
+TARGET_MARGIN_OUTER = 9
 TARGET_MARGIN_TOP = 5
 TARGET_MARGIN_BOTTOM = 10
 
@@ -370,9 +370,23 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         if width is None:
             width = COL_WIDTH
 
+        # Determine alignment based on current physical page
+        # physical_page_count tracks pages *completed*. Current page is +1.
+        current_page_num = physical_page_count + 1
+        is_even_page = (current_page_num % 2 == 0)
+
         # Header
         f.write(rf"\begin{{minipage}}[t][{HEADER_H}mm]{{\textwidth}}")
-        f.write(rf"\huge \textbf{{Event List {event_list_num}}} \hfill")
+        
+        header_text = rf"\huge \textbf{{Event List {event_list_num}}}"
+        
+        if is_even_page:
+            # Left Page: Left Aligned
+            f.write(rf"{header_text} \hfill")
+        else:
+            # Right Page: Right Aligned
+            f.write(rf"\hfill {header_text}")
+            
         f.write(r"\end{minipage}")
         f.write(rf"\addcontentsline{{toc}}{{section}}{{Event List {event_list_num}}}")
         f.write(rf"\label{{sec:event_list_{event_list_num}}}" + "\n")
@@ -412,18 +426,11 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 f.write(rf"\draw[bordergray] (0, {h}) -- ({w}, {h});" + "\n")
             
             # Vertical Dividers
-            # Group 1 internal
-            f.write(rf"\draw[guidegray] ({date_w}, 0) -- ({date_w}, {h});" + "\n")
             # Group 1/2 separator
             f.write(rf"\draw[guidegray] ({pair_w}, 0) -- ({pair_w}, {h});" + "\n")
             
-            # Group 2 internal
-            f.write(rf"\draw[guidegray] ({pair_w + date_w}, 0) -- ({pair_w + date_w}, {h});" + "\n")
             # Group 2/3 separator
             f.write(rf"\draw[guidegray] ({2 * pair_w}, 0) -- ({2 * pair_w}, {h});" + "\n")
-            
-            # Group 3 internal
-            f.write(rf"\draw[guidegray] ({2 * pair_w + date_w}, 0) -- ({2 * pair_w + date_w}, {h});" + "\n")
             
             # Writing Guidelines
             line_spacing = h / NUM_WRITING_LINES
@@ -512,7 +519,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         return True
 
     # Column Layout
-    COLUMN_GUTTER = 5  # mm
+    COLUMN_GUTTER = 2  # mm
     if DAYS_PER_PAGE == 2:
         COL_WIDTH = (CALC_TEXT_WIDTH - COLUMN_GUTTER) / 2
     else:
@@ -530,7 +537,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         f.write(r"""
 \usepackage{helvet}
 \renewcommand{\familydefault}{\sfdefault}
-\usepackage{xcolor}
+\usepackage[cmyk]{xcolor}
 \usepackage{tikz}
 \usepackage{fancyhdr}
 \usepackage{listings} % For source code listing
@@ -556,17 +563,17 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 \makeatother
 
 % Color Definitions
-\definecolor{guidegray}{gray}{0.6} % Darker guide lines
-\definecolor{bordergray}{gray}{0.3} % Darker border lines
-\definecolor{textgray}{gray}{0.4}   % Date labels
-\definecolor{sundayred}{rgb}{0.8, 0.3, 0.3} % Light red for Sundays
+\definecolor{guidegray}{cmyk}{0,0,0,0.4} % Darker guide lines
+\definecolor{bordergray}{cmyk}{0,0,0,0.7} % Darker border lines
+\definecolor{textgray}{cmyk}{0,0,0,0.6}   % Date labels
+\definecolor{sundayred}{cmyk}{0,1,1,0} % Pure Red for Sundays
 
 % Code Listing Colors
-\definecolor{codegreen}{rgb}{0,0.6,0}
-\definecolor{codegray}{rgb}{0.5,0.5,0.5}
-\definecolor{codepurple}{rgb}{0.58,0,0.82}
-\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
-\definecolor{framegray}{gray}{0.9}
+\definecolor{codegreen}{cmyk}{1,0,1,0.4}
+\definecolor{codegray}{cmyk}{0,0,0,0.5}
+\definecolor{codepurple}{cmyk}{0.29,1,0,0.18}
+\definecolor{backcolour}{cmyk}{0,0,0.08,0.05}
+\definecolor{framegray}{cmyk}{0,0,0,0.1}
 
 \begin{document}
 """)
@@ -607,6 +614,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"& \\" + "\n")
             f.write(r"\textbf{Birthdays} & \textbf{Date} \\" + "\n")
             
+            today = datetime.date.today()
+
             # Sort Birthdays by Month, Day
             sorted_birthdays = sorted(SPECIAL_DAYS["birthdays"], key=lambda x: (int(x['date'].split('-')[1]), int(x['date'].split('-')[2])))
             
@@ -621,7 +630,11 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 dt = datetime.datetime.strptime(item['date'], "%Y-%m-%d")
                 date_str = dt.strftime("%b %-d, %Y")
                 
-                f.write(rf"{name} & {date_str} \\" + "\n")
+                # Calculate Age
+                born = dt.date()
+                age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+                f.write(rf"{name} & {date_str} ({age}) \\" + "\n")
 
             # Anniversaries
             f.write(r"& \\" + "\n")
@@ -641,7 +654,11 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 dt = datetime.datetime.strptime(item['date'], "%Y-%m-%d")
                 date_str = dt.strftime("%b %-d, %Y")
                 
-                f.write(rf"{name} & {date_str} \\" + "\n")
+                # Calculate Years
+                anniversary = dt.date()
+                years = today.year - anniversary.year - ((today.month, today.day) < (anniversary.month, anniversary.day))
+
+                f.write(rf"{name} & {date_str} ({years}) \\" + "\n")
 
             f.write(r"\end{tabular}" + "\n")
             f.write(r"}" + "\n")
@@ -742,22 +759,23 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 
                 f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm]" + "\n")
                 
-                # Draw Horizontal Lines
                 w = DAY_NUM_W + 10 * YEAR_COL_W
                 
-                for d in range(days_in_month + 2):
+                # Grid Boundaries for Day Cells
+                grid_top = grid_h - ROW_H
+                grid_bottom = 0
+                grid_left = DAY_NUM_W
+                grid_right = w
+
+                # Draw Horizontal Lines (Only for Day rows)
+                for d in range(1, days_in_month + 2):
                     y = grid_h - (d * ROW_H)
-                    f.write(rf"\draw[bordergray] (0, {y}) -- ({w}, {y});" + "\n")
+                    f.write(rf"\draw[bordergray] ({grid_left}, {y}) -- ({grid_right}, {y});" + "\n")
                     
-                # Draw Vertical Lines
-                # Left Border
-                f.write(rf"\draw[bordergray] (0, 0) -- (0, {grid_h});" + "\n")
-                # Day Num Separator
-                f.write(rf"\draw[bordergray] ({DAY_NUM_W}, 0) -- ({DAY_NUM_W}, {grid_h});" + "\n")
-                # Year Columns
-                for i in range(10):
-                    x = DAY_NUM_W + (i + 1) * YEAR_COL_W
-                    f.write(rf"\draw[bordergray] ({x}, 0) -- ({x}, {grid_h});" + "\n")
+                # Draw Vertical Lines (Only for Year columns)
+                for i in range(11):
+                    x = grid_left + (i * YEAR_COL_W)
+                    f.write(rf"\draw[bordergray] ({x}, {grid_bottom}) -- ({x}, {grid_top});" + "\n")
 
                 # --- CONTENT ---
                 
@@ -974,7 +992,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                                     f.write(rf"\draw[guidegray] ({cx}, {y_circle}) circle ({circle_radius});" + "\n")
 
                                 # Continuation 'p' prompt
-                                f.write(rf"\node[anchor=base east, inner sep=0, text=textgray] at ({w}-6, 2.5) {{\small $\vec{{p}}$}};" + "\n")
+                                # Anchor to bottom writing guide (y=0) to avoid touching top guide
+                                f.write(rf"\node[anchor=south east, inner sep=0, text=textgray, yshift=0.5mm] at ({w}-6, 0) {{\small $\vec{{p}}$}};" + "\n")
 
                                 for l in range(1, NUM_WRITING_LINES):
                                     y_pos = h - l * line_spacing
