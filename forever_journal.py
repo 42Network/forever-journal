@@ -282,7 +282,7 @@ WHIMSY_STYLES = {
     "Anniversary": {"icon": r"\faRing", "color": "orange"},
 }
 
-def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False, include_source=False, toc_enabled=False, whimsy=False, single_pass=False):
+def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False, include_source=False, toc_enabled=False, whimsy=False, single_pass=False, event_lists_enabled=False):
     """
     Generates the LaTeX source file for the journal.
 
@@ -295,6 +295,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         toc_enabled (bool): If True, includes a Table of Contents.
         whimsy (bool): If True, adds icons and colors to special days.
         single_pass (bool): If True, runs pdflatex only once (faster, but references/overlays may be broken).
+        event_lists_enabled (bool): If True, generates Event List pages as filler.
     """
     end_year = START_YEAR + NUM_YEARS - 1
     output_base = f"forever_journal_{START_YEAR}_{end_year}"
@@ -456,11 +457,10 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         next_physical_parity = (physical_page_count + 1) % 2
         
         if target_parity != next_physical_parity:
-            # Render Full Page Event List instead of blank page
-            render_event_list(event_list_counter, width=CALC_TEXT_WIDTH)
-            event_list_counter += 1
+            # Always render a blank page for parity correction
+            # Event Lists are now exclusively in the appendix if enabled
+            f.write(r"\null\newpage" + "\n")
             
-            f.write(r"\newpage" + "\n")
             physical_page_count += 1
 
     def is_test_content(section, month=None, day=None, page_idx=None):
@@ -739,9 +739,9 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             YEAR_COL_W = (CALC_TEXT_WIDTH - DAY_NUM_W) / 10
             
             if is_test_content("MONTH_SUMMARY", month=month):
-                # Ensure we start on an Even (Left) page
-                if page_num % 2 != 0: # Odd/Right
-                    ensure_parity(page_num + 1) # Force skip to Even
+                # Ensure we start on an Odd (Right) page
+                if page_num % 2 == 0: # Even/Left
+                    ensure_parity(page_num + 1) # Force skip to Odd
                     page_num += 1
                 
                 ensure_parity(page_num)
@@ -1027,12 +1027,37 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 physical_page_count += 1
                 page_num += 1
 
+        # --- EVENT LISTS APPENDIX ---
+        if event_lists_enabled:
+            # Ensure we start on an Odd (Right) page
+            if page_num % 2 == 0: # Even/Left
+                ensure_parity(page_num + 1) # Force skip to Odd
+                page_num += 1
+            
+            ensure_parity(page_num)
+            
+            # Generate 6 Event Lists
+            for i in range(6):
+                # Render Full Page Event List
+                render_event_list(event_list_counter, width=CALC_TEXT_WIDTH)
+                event_list_counter += 1
+                f.write(r"\newpage" + "\n")
+                physical_page_count += 1
+                page_num += 1
+
         # --- EXTRA PAGES ---
         # 10 pages (5 sheets) of lined notes
         # We ensure the Source Code starts on an Odd page (Right side / Fresh sheet).
         # If after 10 pages, the next page is Even, we add one more extra page.
         MIN_EXTRA_PAGES = 10
         
+        # Ensure we start on an Odd (Right) page
+        if page_num % 2 == 0: # Even/Left
+            ensure_parity(page_num + 1) # Force skip to Odd
+            page_num += 1
+        
+        ensure_parity(page_num)
+
         # Calculate how many pages we need
         # Current page_num is the start of extra pages.
         # If (page_num + 10) is Even, next page is Even. We want Odd. So we need 11.
@@ -1119,6 +1144,11 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         # --- SOURCE CODE APPENDIX ---
         # Self-preservation: Print the source code of this script at the end of the journal.
         if include_source and is_test_content("SOURCE"):
+            # Ensure we start on an Odd (Right) page
+            if page_num % 2 == 0: # Even/Left
+                ensure_parity(page_num + 1) # Force skip to Odd
+                page_num += 1
+            
             ensure_parity(page_num)
             # Ensure the page number is correct (continuing from the last logical page)
             f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
@@ -1224,6 +1254,7 @@ if __name__ == "__main__":
     parser.add_argument("--toc", action="store_true", help="Include Table of Contents (requires 2-pass compilation)")
     parser.add_argument("--whimsy", action="store_true", help="Add icons and colors to special days")
     parser.add_argument("--single-pass", action="store_true", help="Run pdflatex only once (faster, but ToC/Edge Index may be broken)")
+    parser.add_argument("--event-lists", action="store_true", help="Enable Event List filler pages")
     args = parser.parse_args()
 
-    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source, toc_enabled=args.toc, whimsy=args.whimsy, single_pass=args.single_pass)
+    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source, toc_enabled=args.toc, whimsy=args.whimsy, single_pass=args.single_pass, event_lists_enabled=args.event_lists)
