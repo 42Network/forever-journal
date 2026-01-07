@@ -1,11 +1,25 @@
 """
 Forever Journal Generator
 ------------------------
-Generates a 10-year journal layout in LaTeX format.
+Generates a multi-year journal layout in LaTeX format.
 Designed for A4 paper with specific margin requirements for hole punching.
 
 Usage:
-    python forever_journal.py [--test] [--spread 4up] [--align mirrored]
+    python forever_journal.py [options]
+
+Options:
+    --num-years N       Number of years to track (default: 10)
+    --num-lines N       Number of writing lines per block (default: 5)
+    --spread MODE       Layout mode: '2up' (1 day/page) or '4up' (2 days/page) (default: 2up)
+    --align MODE        Alignment: 'mirrored' (outer) or 'left' (default: mirrored)
+    --whimsy            Add icons and colors to special days
+    --kanji             Add Japanese Kanji to day labels
+    --toc               Include Table of Contents
+    --event-lists       Enable Event List filler pages
+    --test              Generate a small subset of pages for testing
+    --no-compile        Skip automatic PDF compilation
+    --single-pass       Run pdflatex only once (faster, but refs may be broken)
+    --include-source    Append source code to the PDF
 """
 
 import datetime
@@ -18,7 +32,7 @@ import subprocess
 # --- CONFIGURATION: JOURNAL SETTINGS ---
 START_YEAR = 2026
 NUM_YEARS = 10
-NUM_WRITING_LINES = 6
+NUM_WRITING_LINES = 5
 SUNDAYS_RED = True
 OUTPUT_DIR = "output"
 
@@ -117,6 +131,16 @@ SPECIAL_DAYS = {
         {"name": "Tad & Missa", "date": "2022-12-21"},
         {"name": "Aub & Tom", "date": "2024-08-16"},
     ]
+}
+
+KANJI_DAYS = {
+    "Mon": "月",
+    "Tue": "火",
+    "Wed": "水",
+    "Thu": "木",
+    "Fri": "金",
+    "Sat": "土",
+    "Sun": "日"
 }
 
 def calculate_easter(year):
@@ -282,7 +306,7 @@ WHIMSY_STYLES = {
     "Anniversary": {"icon": r"\faRing", "color": "orange"},
 }
 
-def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False, include_source=False, toc_enabled=False, whimsy=False, single_pass=False, event_lists_enabled=False):
+def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False, include_source=False, toc_enabled=False, whimsy=False, single_pass=False, event_lists_enabled=False, kanji_enabled=False, num_years=10, num_writing_lines=5):
     """
     Generates the LaTeX source file for the journal.
 
@@ -296,7 +320,18 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         whimsy (bool): If True, adds icons and colors to special days.
         single_pass (bool): If True, runs pdflatex only once (faster, but references/overlays may be broken).
         event_lists_enabled (bool): If True, generates Event List pages as filler.
+        kanji_enabled (bool): If True, adds Japanese Kanji to day labels.
+        num_years (int): Number of years to track (default 10).
+        num_writing_lines (int): Number of writing lines per block (default 5).
     """
+    # Shadow globals with arguments
+    NUM_YEARS = num_years
+    NUM_WRITING_LINES = num_writing_lines
+
+    # Recalculate Block Height based on dynamic years
+    USABLE_H = ESTIMATED_TEXT_HEIGHT - HEADER_H - 2
+    BLOCK_H = USABLE_H / NUM_YEARS
+
     end_year = START_YEAR + NUM_YEARS - 1
     output_base = f"forever_journal_{START_YEAR}_{end_year}"
     if test_mode:
@@ -544,6 +579,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 \usepackage{pdflscape} % For landscape pages
 \usepackage{multicol} % For multi-column layout
 \usepackage{fontawesome5} % For icons (whimsy mode)
+\usepackage{CJKutf8} % For Japanese Kanji
+\usepackage{graphicx} % For scaling text
 
 \pagestyle{fancy}
 \fancyhf{} % clear all headers and footers
@@ -576,6 +613,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 \definecolor{framegray}{cmyk}{0,0,0,0.1}
 
 \begin{document}
+\begin{CJK*}{UTF8}{min}
 """)
 
         # --- COVER PAGE ---
@@ -736,7 +774,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             # Calculate column widths
             # Day Num + 10 Years
             DAY_NUM_W = 8
-            YEAR_COL_W = (CALC_TEXT_WIDTH - DAY_NUM_W) / 10
+            YEAR_COL_W = (CALC_TEXT_WIDTH - DAY_NUM_W) / NUM_YEARS
             
             if is_test_content("MONTH_SUMMARY", month=month):
                 # Ensure we start on an Odd (Right) page
@@ -759,7 +797,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 
                 f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm]" + "\n")
                 
-                w = DAY_NUM_W + 10 * YEAR_COL_W
+                w = DAY_NUM_W + NUM_YEARS * YEAR_COL_W
                 
                 # Grid Boundaries for Day Cells
                 grid_top = grid_h - ROW_H
@@ -773,7 +811,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     f.write(rf"\draw[bordergray] ({grid_left}, {y}) -- ({grid_right}, {y});" + "\n")
                     
                 # Draw Vertical Lines (Only for Year columns)
-                for i in range(11):
+                for i in range(NUM_YEARS + 1):
                     x = grid_left + (i * YEAR_COL_W)
                     f.write(rf"\draw[bordergray] ({x}, {grid_bottom}) -- ({x}, {grid_top});" + "\n")
 
@@ -786,7 +824,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     
                 # 2. Year Headers (Row 0)
                 header_y = grid_h - (ROW_H / 2)
-                for i in range(10):
+                for i in range(NUM_YEARS):
                     curr_year = START_YEAR + i
                     header_x = DAY_NUM_W + (i * YEAR_COL_W) + (YEAR_COL_W / 2)
                     f.write(rf"\node[anchor=center] at ({header_x}, {header_y}) {{\textbf{{{curr_year}}}}};" + "\n")
@@ -794,7 +832,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 # 3. Day Cells
                 for day in range(1, days_in_month + 1):
                     row_top_y = grid_h - (day * ROW_H)
-                    for i in range(10):
+                    for i in range(NUM_YEARS):
                         curr_year = START_YEAR + i
                         col_left_x = DAY_NUM_W + (i * YEAR_COL_W)
                         dow = get_day_of_week(curr_year, month, day)[:2]
@@ -935,6 +973,15 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                             if not skip_content:
                                 label_year = f"{curr_year}"
                                 label_day = f"{weekday}"
+                                
+                                if kanji_enabled:
+                                    kanji = KANJI_DAYS.get(weekday, "")
+                                    if kanji:
+                                        label_day += f" {kanji}"
+                                    
+                                    # Squish all days to prevent wrapping and ensure visual consistency
+                                    label_day = rf"\scalebox{{0.85}}[1.0]{{{label_day}}}"
+
                                 if SUNDAYS_RED and weekday == "Sun":
                                     day_color = "sundayred"
                                 else:
@@ -1194,6 +1241,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"\end{multicols}" + "\n")
             f.write(r"\end{landscape}" + "\n")
             
+        f.write(r"\end{CJK*}" + "\n")
         f.write(r"\end{document}")
 
     print(f"Generated: {output_tex}")
@@ -1255,6 +1303,9 @@ if __name__ == "__main__":
     parser.add_argument("--whimsy", action="store_true", help="Add icons and colors to special days")
     parser.add_argument("--single-pass", action="store_true", help="Run pdflatex only once (faster, but ToC/Edge Index may be broken)")
     parser.add_argument("--event-lists", action="store_true", help="Enable Event List filler pages")
+    parser.add_argument("--kanji", action="store_true", help="Add Japanese Kanji to day labels")
+    parser.add_argument("--num-years", type=int, default=10, help="Number of years to track (default: 10)")
+    parser.add_argument("--num-lines", type=int, default=5, help="Number of writing lines per block (default: 5)")
     args = parser.parse_args()
 
-    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source, toc_enabled=args.toc, whimsy=args.whimsy, single_pass=args.single_pass, event_lists_enabled=args.event_lists)
+    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source, toc_enabled=args.toc, whimsy=args.whimsy, single_pass=args.single_pass, event_lists_enabled=args.event_lists, kanji_enabled=args.kanji, num_years=args.num_years, num_writing_lines=args.num_lines)
