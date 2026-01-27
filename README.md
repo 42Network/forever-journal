@@ -18,9 +18,35 @@ To engineer a "Forever Journal" layout that fits 10 years of daily entries onto 
 *   **Writing Space:** 6 lines per year block.
 *   **Margins:** Mirror Margins (Inner gutter shift) to accommodate hole punching.
 *   **Alignment:** Mirrored layout (Day labels align to the outer edge of the page).
-*   **Edge Indexing:** Black navigation tabs on the outer edge of every page for quick month access. Tabs are visible when the book is closed.
-*   **Pagination:** Month Summaries are forced to start on Even (Left) pages to ensure the first daily spread (Day 1-2) opens correctly.
-*   **Event Lists:** Full-page "Event List" spreads are generated on blank filler pages to maximize utility. These feature a 6-column layout (Date | Event | Date | Event | Date | Event) for tracking lists across the 10 years.
+*   **Thickness:** Automatically calculated and displayed in info box. Varies with page count.
+
+## Features (v2.0)
+The journal generator includes rigorous checks for rigorous writers:
+*   **Whimsy Icons**: Special events (Birthdays, Holidays) are prefixed with relevant FontAwesome icons and colors (e.g., Red Heart for Valentine's, Green Clover for St. Patrick's).
+*   **Kanji Support**: Days of the week include Japanese Kanji abbreviations (月, 火, 水...) for bilingual utility.
+*   **Hyperlinked ToC**: The Title Page includes a generated Table of Contents with clickable links to the title page, every Month Summary, Event Lists, and the Source Code appendix.
+*   **Sanitized Source Code Include**: The `--include-source` option properly handles multi-byte characters (like Kanji) by replacing them with Unicode placeholders, preventing LaTeX compilation crashes.
+*   **Edge Indexing**: Black navigation tabs bleed to the outer edge of every page for quick month access by thumbing the side of the book. Tabs are visible even when the book is closed.
+
+## Printer Settings & Margins
+For the most accurate reproduction of the layout, especially the **Edge Index Tabs**, correct printer settings are mandatory.
+
+| Setting | Value | Reason |
+| :--- | :--- | :--- |
+| **Scaling** | **100%** (Actual Size) | "Scale to Fit" shrinks the line heights (designed for 6mm hand-writing) and corrupts the hole-punch margins. |
+| **Borderless** | **ON** | **Required** for Edge Index Tabs. Without this, tabs will have a white gap at the paper edge. |
+| **Extension** | **Min/Least** | When Borderless is ON, printers "zoom" the page. Set extension to minimum to prevent cutting off text near the edge. |
+| **Media Type** | **Inkjet Paper** (or Matte) | Tells the printer to assume a higher quality surface, often improving alignment accuracy. |
+
+### Years vs Writing Area
+The script dynamically calculates writing space based on paper size margins. The number of years chosen inversely affects the writing space per day. Calculated for A4 Paper with standard margins:
+
+| Years | Lines/Day | Line Spacing | Notes |
+| :--- | :---: | :---: | :--- |
+| **8 Years** | 6 | ~5.8 mm | Comfortable, standard rule. |
+| **9 Years** | 6 | ~5.1 mm | Compact rule, good for fine pens (0.38mm). |
+| **10 Years** | 5 | ~6.0 mm | Reduces line count to maintain spacing. |
+| **10 Years** | 6 | ~4.7 mm | Very tight. Requires precision writing. |
 
 ## Tech Stack
 *   **Logic:** Python 3 (`forever_journal.py`)

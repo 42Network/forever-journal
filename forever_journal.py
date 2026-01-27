@@ -8,12 +8,12 @@ Usage:
     python forever_journal.py [options]
 
 Options:
-    --num-years N       Number of years to track (default: 10)
-    --num-lines N       Number of writing lines per block (default: 5)
-    --spread MODE       Layout mode: '2up' (1 day/page) or '4up' (2 days/page) (default: 2up)
-    --align MODE        Alignment: 'mirrored' (outer) or 'left' (default: mirrored)
-    --whimsy            Add icons and colors to special days
-    --kanji             Add Japanese Kanji to day labels
+    --num-years N       Number of years to track (default: 8)
+    --num-lines N       Number of writing lines per block (default: 6)
+    --spread MODE       Layout mode: '2up' (1 day/page) or '4up' (2 days/page) (default: 4up)
+    --align MODE        Alignment: 'mirrored' (outer) or 'left' (default: left)
+    --whimsy            Add icons and colors to special days (default: on)
+    --kanji             Add Japanese Kanji to day labels (default: on)
     --toc               Include Table of Contents
     --event-lists       Enable Event List filler pages
     --test              Generate a small subset of pages for testing
@@ -28,11 +28,13 @@ import argparse
 import os
 import shutil
 import subprocess
+import sys
+import shlex
 
 # --- CONFIGURATION: JOURNAL SETTINGS ---
 START_YEAR = 2026
-NUM_YEARS = 10
-NUM_WRITING_LINES = 5
+NUM_YEARS = 8
+NUM_WRITING_LINES = 6
 SUNDAYS_RED = True
 OUTPUT_DIR = "output"
 
@@ -48,11 +50,11 @@ CURRENT_PAPER_KEY = "A4"
 PAPER = PAPER_SIZES[CURRENT_PAPER_KEY]
 
 # Physical Margins (mm)
-# Bottom margin set to 10mm to prevent printer cutoff
-TARGET_MARGIN_INNER = 13
+# Bottom margin set to 12mm to prevent printer cutoff
+TARGET_MARGIN_INNER = 15
 TARGET_MARGIN_OUTER = 9
 TARGET_MARGIN_TOP = 5
-TARGET_MARGIN_BOTTOM = 10
+TARGET_MARGIN_BOTTOM = 12
 
 PAGE_W = PAPER["w"]
 PAGE_H = PAPER["h"]
@@ -130,7 +132,19 @@ SPECIAL_DAYS = {
         {"name": "Ben & Mo", "date": "2019-08-02"},
         {"name": "Tad & Missa", "date": "2022-12-21"},
         {"name": "Aub & Tom", "date": "2024-08-16"},
+    ],
+    "education": [
+        {"name": "Westwood HS", "date": "1986-06-06"},
+        {"name": "UT Austin BS ECE", "date": "1993-08-16"},
+        {"name": "St. Edwards MS CIS", "date": "2014-12-13"},
+        {"name": "UT Dallas PhD TE", "date": "2026-05-14"},
+        ],
+    "other": [
+        {"name": "Japan Fukuoka Mission", "date": "1988-08-24"},
+        {"name": "Texas Return", "date": "2011-12-20"},
+        {"name": "Wylie Move", "date": "2015-06-19"},
     ]
+
 }
 
 KANJI_DAYS = {
@@ -228,7 +242,7 @@ def get_special_events(year, month, day, use_whimsy=False):
                 name = item["name"]
                 if use_whimsy and name in WHIMSY_STYLES:
                     style = WHIMSY_STYLES[name]
-                    name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                    name = rf"\textcolor{{{style['color']}}}{{{style['icon']} \hspace{{1pt}} {name}}}"
                 events.append(name)
         elif "rule" in item:
             m, d = parse_rule(item["rule"], year)
@@ -236,7 +250,7 @@ def get_special_events(year, month, day, use_whimsy=False):
                 name = item["name"]
                 if use_whimsy and name in WHIMSY_STYLES:
                     style = WHIMSY_STYLES[name]
-                    name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                    name = rf"\textcolor{{{style['color']}}}{{{style['icon']} \hspace{{1pt}} {name}}}"
                 events.append(name)
                 
     # Check Birthdays
@@ -251,7 +265,7 @@ def get_special_events(year, month, day, use_whimsy=False):
                 if use_whimsy:
                     style = WHIMSY_STYLES.get("Birthday")
                     if style:
-                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} \hspace{{1pt}} {name}}}"
                 
                 events.append(f"{name} ({years_elapsed}y)")
 
@@ -267,10 +281,42 @@ def get_special_events(year, month, day, use_whimsy=False):
                 if use_whimsy:
                     style = WHIMSY_STYLES.get("Anniversary")
                     if style:
-                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} \hspace{{1pt}} {name}}}"
                 
                 events.append(f"{name} ({years_elapsed}y)")
                 
+    # Check Education
+    for item in SPECIAL_DAYS.get("education", []):
+        # Parse date "YYYY-MM-DD"
+        y_str, m_str, d_str = item["date"].split("-")
+        if int(m_str) == month and int(d_str) == day:
+            years_elapsed = year - int(y_str)
+            if years_elapsed >= 0:
+                name = item['name']
+                
+                if use_whimsy:
+                    style = WHIMSY_STYLES.get("Education")
+                    if style:
+                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} \hspace{{1pt}} {name}}}" 
+                
+                events.append(f"{name} ({years_elapsed}y)")
+
+    # Check Other
+    for item in SPECIAL_DAYS.get("other", []):
+        # Parse date "YYYY-MM-DD"
+        y_str, m_str, d_str = item["date"].split("-")
+        if int(m_str) == month and int(d_str) == day:
+            years_elapsed = year - int(y_str)
+            if years_elapsed >= 0:
+                name = item['name']
+                
+                if use_whimsy:
+                    style = WHIMSY_STYLES.get("Other")
+                    if style:
+                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} \hspace{{1pt}} {name}}}" 
+                
+                events.append(f"{name} ({years_elapsed}y)")
+
     return events
 
 
@@ -304,6 +350,8 @@ WHIMSY_STYLES = {
     "Christmas": {"icon": r"\faTree", "color": "red"},
     "Birthday": {"icon": r"\faBirthdayCake", "color": "teal"},
     "Anniversary": {"icon": r"\faRing", "color": "orange"},
+    "Education": {"icon": r"\faGraduationCap", "color": "blue"},
+    "Other": {"icon": r"\faGlobe", "color": "teal"},
 }
 
 def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_compile=False, include_source=False, toc_enabled=False, whimsy=False, single_pass=False, event_lists_enabled=False, kanji_enabled=False, num_years=10, num_writing_lines=5):
@@ -424,6 +472,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(rf"\hfill {header_text}")
             
         f.write(r"\end{minipage}")
+        f.write(r"\phantomsection" + "\n")
         f.write(rf"\addcontentsline{{toc}}{{section}}{{Event List {event_list_num}}}")
         f.write(rf"\label{{sec:event_list_{event_list_num}}}" + "\n")
         f.write(r"\par \nointerlineskip")
@@ -547,14 +596,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             
         return False
 
-    def should_write_page(page_num):
-        # Deprecated in favor of is_test_content, but kept for compatibility 
-        # with existing calls that haven't been migrated if any.
-        # In this refactor, we will replace calls to this function.
-        return True
-
     # Column Layout
-    COLUMN_GUTTER = 2  # mm
+    COLUMN_GUTTER = 4  # mm
     if DAYS_PER_PAGE == 2:
         COL_WIDTH = (CALC_TEXT_WIDTH - COLUMN_GUTTER) / 2
     else:
@@ -566,8 +609,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 \documentclass[10pt,twoside]{article}
 """)
         # Geometry setup:
-        # footskip=1mm pulls footer up; with bottom=10mm, footer sits safely from edge.
-        f.write(rf"\usepackage[paperwidth={PAGE_W}mm, paperheight={PAGE_H}mm, inner={TARGET_MARGIN_INNER}mm, outer={TARGET_MARGIN_OUTER}mm, top={TARGET_MARGIN_TOP}mm, bottom={TARGET_MARGIN_BOTTOM}mm, footskip=1mm]{{geometry}}" + "\n")
+        # footskip=5mm pushes footer up; with bottom=10mm, footer sits safely from edge.
+        f.write(rf"\usepackage[paperwidth={PAGE_W}mm, paperheight={PAGE_H}mm, inner={TARGET_MARGIN_INNER}mm, outer={TARGET_MARGIN_OUTER}mm, top={TARGET_MARGIN_TOP}mm, bottom={TARGET_MARGIN_BOTTOM}mm, footskip=5mm]{{geometry}}" + "\n")
 
         f.write(r"""
 \usepackage{helvet}
@@ -581,6 +624,9 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 \usepackage{fontawesome5} % For icons (whimsy mode)
 \usepackage{CJKutf8} % For Japanese Kanji
 \usepackage{graphicx} % For scaling text
+\usepackage{lastpage} % For total page count
+\usepackage{refcount} % For extracting page number values
+\usepackage[hidelinks]{hyperref} % For hyperlinks in PDF (loaded last)
 
 \pagestyle{fancy}
 \fancyhf{} % clear all headers and footers
@@ -594,7 +640,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 \makeatletter
 \newcommand{\eventlistrow}[1]{%
   \@ifundefined{r@sec:event_list_#1}{}{%
-    Event List #1 & \pageref{sec:event_list_#1} \\%
+    \hyperref[sec:event_list_#1]{Event List #1} & \pageref{sec:event_list_#1} \\%
   }%
 }
 \makeatother
@@ -620,6 +666,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         if is_test_content("TITLE"):
             ensure_parity(1)
             f.write(r"\begin{titlepage}" + "\n")
+            f.write(r"\phantomsection" + "\n")
             f.write(r"\label{sec:title}" + "\n")
             f.write(r"\centering" + "\n")
             
@@ -640,7 +687,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 name = item['name']
                 if whimsy and name in WHIMSY_STYLES:
                     style = WHIMSY_STYLES[name]
-                    name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                    name = rf"\textcolor{{{style['color']}}}{{{style['icon']} \hspace{{1pt}} {name}}}"
 
                 if "rule" in item:
                     rule = item["rule"]
@@ -652,8 +699,6 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"& \\" + "\n")
             f.write(r"\textbf{Birthdays} & \textbf{Date} \\" + "\n")
             
-            today = datetime.date.today()
-
             # Sort Birthdays by Month, Day
             sorted_birthdays = sorted(SPECIAL_DAYS["birthdays"], key=lambda x: (int(x['date'].split('-')[1]), int(x['date'].split('-')[2])))
             
@@ -662,17 +707,28 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 if whimsy:
                     style = WHIMSY_STYLES.get("Birthday")
                     if style:
-                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} \hspace{{1pt}} {name}}}"
                 
                 # Format Date: M D, Y
                 dt = datetime.datetime.strptime(item['date'], "%Y-%m-%d")
-                date_str = dt.strftime("%b %-d, %Y")
                 
-                # Calculate Age
-                born = dt.date()
-                age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+                # Fixed width box for Month Abbreviation to ensure alignment
+                month_fixed = rf"\makebox[5mm][l]{{{dt.strftime('%b')}}}"
 
-                f.write(rf"{name} & {date_str} ({age}) \\" + "\n")
+                # Pad single digit days with phantom 0 for alignment
+                day_num = dt.day
+                day_str = f"{day_num},"
+                if day_num < 10:
+                    day_str = rf"\hphantom{{0}}{day_num},"
+                
+                date_str = f"{month_fixed} {day_str} {dt.year}"
+                
+                # Calculate Age Range
+                born_year = dt.year
+                start_age = START_YEAR - born_year
+                end_age = start_age + num_years - 1
+
+                f.write(rf"{name} & {date_str} ({start_age}--{end_age}) \\" + "\n")
 
             # Anniversaries
             f.write(r"& \\" + "\n")
@@ -686,17 +742,94 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 if whimsy:
                     style = WHIMSY_STYLES.get("Anniversary")
                     if style:
-                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} {name}}}"
+                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} \hspace{{1pt}} {name}}}" 
                 
                 # Format Date: M D, Y
                 dt = datetime.datetime.strptime(item['date'], "%Y-%m-%d")
-                date_str = dt.strftime("%b %-d, %Y")
-                
-                # Calculate Years
-                anniversary = dt.date()
-                years = today.year - anniversary.year - ((today.month, today.day) < (anniversary.month, anniversary.day))
 
-                f.write(rf"{name} & {date_str} ({years}) \\" + "\n")
+                # Fixed width box for Month Abbreviation to ensure alignment
+                month_fixed = rf"\makebox[4mm][l]{{{dt.strftime('%b')}}}"
+
+                # Pad single digit days with phantom 0 for alignment
+                day_num = dt.day
+                day_str = f"{day_num},"
+                if day_num < 10:
+                    day_str = rf"\hphantom{{0}}{day_num},"
+                
+                date_str = f"{month_fixed} {day_str} {dt.year}"
+                
+                # Calculate Years Range
+                ann_year = dt.year
+                start_ann = START_YEAR - ann_year
+                end_ann = start_ann + num_years - 1
+
+                f.write(rf"{name} & {date_str} ({start_ann}--{end_ann}) \\" + "\n")
+
+            # Education
+            f.write(r"& \\" + "\n")
+            f.write(r"\textbf{Education} & \textbf{Date} \\" + "\n")
+            sorted_education = sorted(SPECIAL_DAYS.get("education", []), key=lambda x: (int(x['date'].split('-')[1]), int(x['date'].split('-')[2])))
+            
+            for item in sorted_education:
+                name = item['name'].replace("&", r"\&")
+                if whimsy:
+                    style = WHIMSY_STYLES.get("Education")
+                    if style:
+                        name = rf"\textcolor{{{style['color']}}}{{{style['icon']} \hspace{{1pt}} {name}}}"
+                
+                # Format Date: M D, Y
+                dt = datetime.datetime.strptime(item['date'], "%Y-%m-%d")
+                
+                # Fixed width box for Month Abbreviation to ensure alignment
+                month_fixed = rf"\makebox[4mm][l]{{{dt.strftime('%b')}}}"
+
+                # Pad single digit days with phantom 0 for alignment
+                day_num = dt.day
+                day_str = f"{day_num},"
+                if day_num < 10:
+                    day_str = rf"\hphantom{{0}}{day_num},"
+                
+                date_str = f"{month_fixed} {day_str} {dt.year}"
+                
+                # Calculate Years Range
+                grad_year = dt.year
+                start_grad = START_YEAR - grad_year
+                end_grad = start_grad + num_years - 1
+
+                f.write(rf"{name} & {date_str} ({start_grad}--{end_grad}) \\" + "\n")
+
+            # Other
+            f.write(r"& \\" + "\n")
+            f.write(r"\textbf{Other} & \textbf{Date} \\" + "\n")
+            sorted_other = sorted(SPECIAL_DAYS.get("other", []), key=lambda x: (int(x['date'].split('-')[1]), int(x['date'].split('-')[2])))
+            
+            for item in sorted_other:
+                name = item['name'].replace("&", r"\&")
+                if whimsy:
+                    style = WHIMSY_STYLES.get("Other")
+                    if style:
+                         name = rf"\textcolor{{{style['color']}}}{{{style['icon']} \hspace{{1pt}} {name}}}"
+
+                # Format Date: M D, Y
+                dt = datetime.datetime.strptime(item['date'], "%Y-%m-%d")
+                
+                # Fixed width box for Month Abbreviation to ensure alignment
+                month_fixed = rf"\makebox[4mm][l]{{{dt.strftime('%b')}}}"
+
+                # Pad single digit days with phantom 0 for alignment
+                day_num = dt.day
+                day_str = f"{day_num},"
+                if day_num < 10:
+                    day_str = rf"\hphantom{{0}}{day_num},"
+                
+                date_str = f"{month_fixed} {day_str} {dt.year}"
+                
+                # Calculate Years Range
+                event_year = dt.year
+                start_event = START_YEAR - event_year
+                end_event = start_event + num_years - 1
+
+                f.write(rf"{name} & {date_str} ({start_event}--{end_event}) \\" + "\n")
 
             f.write(r"\end{tabular}" + "\n")
             f.write(r"}" + "\n")
@@ -709,11 +842,11 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             if toc_enabled:
                 f.write(r"\textbf{Table of Contents} \par \vspace{2mm}" + "\n")
                 f.write(r"\begin{tabular}{lr}" + "\n") # Use tabular for alignment
-                f.write(r"Title Page & \pageref{sec:title} \\" + "\n")
+                f.write(r"\hyperref[sec:title]{Title Page} & \pageref{sec:title} \\" + "\n")
                 for m in range(1, 13):
                     m_name = calendar.month_name[m]
                     if is_test_content("MONTH_SUMMARY", month=m):
-                        f.write(rf"{m_name} & \pageref{{sec:month_{m}}} \\" + "\n")
+                        f.write(rf"\hyperref[sec:month_{m}]{{{m_name}}} & \pageref{{sec:month_{m}}} \\" + "\n")
                     else:
                         f.write(rf"{m_name} & (Skipped) \\" + "\n")
                 
@@ -722,12 +855,12 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     f.write(rf"\eventlistrow{{{i}}}" + "\n")
 
                 if not test_mode:
-                    f.write(r"Extra Pages & \pageref{sec:extra_pages} \\" + "\n")
+                    f.write(r"\hyperref[sec:extra_pages]{Extra Pages} & \pageref{sec:extra_pages} \\" + "\n")
                 else:
                     f.write(r"Extra Pages & (Skipped) \\" + "\n")
                     
                 if include_source:
-                    f.write(r"Source Code & \pageref{sec:source} \\" + "\n")
+                    f.write(r"\hyperref[sec:source]{Source Code} & \pageref{sec:source} \\" + "\n")
                 f.write(r"\end{tabular}" + "\n")
             f.write(r"\end{minipage}" + "\n")
             
@@ -735,19 +868,53 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
             # Info Box at Bottom Right
             now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Reconstruct Command Line
+            cmd_parts = [os.path.basename(sys.argv[0])] + sys.argv[1:]
+            cmd_str = "python " + " ".join(cmd_parts)
+            cmd_str_safe = cmd_str.replace("_", r"\_").replace("&", r"\&").replace("%", r"\%").replace("$", r"\$")
+
+            # Calculate actual layout metrics for the info box
+            final_usable_h = ESTIMATED_TEXT_HEIGHT - HEADER_H - 2
+            final_block_h = final_usable_h / NUM_YEARS
+            final_line_spacing = final_block_h / NUM_WRITING_LINES
+            
+            # Re-calculate column width for statistics (matches logic in page loop)
+            # Use global constants/vars established before generate_tex or passed in args
+            # Actually we can re-derive it here contextually
+            stat_col_width = (CALC_TEXT_WIDTH - COLUMN_GUTTER) / 2 if DAYS_PER_PAGE == 2 else CALC_TEXT_WIDTH
+            stat_writing_vol_cm = (stat_col_width * NUM_WRITING_LINES) / 10 # mm to cm
+
+
             f.write(r"\begin{tikzpicture}[remember picture, overlay]" + "\n")
             f.write(rf"  \node[anchor=south east, xshift=-{TARGET_MARGIN_OUTER}mm, yshift=1cm] at (current page.south east) {{" + "\n")
-            f.write(r"    \begin{minipage}{10cm}" + "\n")
+            f.write(r"    \begin{minipage}{12cm}" + "\n") # Widened to 12cm
             f.write(r"      \flushright \small \ttfamily" + "\n")
             f.write(rf"      Start Year: {START_YEAR} \\" + "\n")
             f.write(rf"      Num Years: {NUM_YEARS} \\" + "\n")
-            f.write(rf"      Lines/Day: {NUM_WRITING_LINES} \\" + "\n")
+            f.write(rf"      Lines/Day: {NUM_WRITING_LINES} ({final_line_spacing:.2f}mm spacing) \\" + "\n")
+            f.write(rf"      Volume/Day: {stat_writing_vol_cm:.1f} cm \\" + "\n")
+            
+            if toc_enabled:
+                 # Use PGF Math to calculate thickness based on correct LastPage reference
+                 # Thickness factor: 0.0463 mm/page
+                 f.write(r"      % Thickness Calculation" + "\n")
+                 f.write(r"      \newcounter{totalpg}" + "\n")
+                 f.write(r"      \setcounter{totalpg}{\getpagerefnumber{LastPage}}" + "\n")
+                 f.write(r"      \pgfmathparse{\thetotalpg * 0.0463}" + "\n")
+                 f.write(r"      Thickness: ~\pgfmathprintnumber[fixed, precision=1]{\pgfmathresult} mm (\thetotalpg~pgs) \\" + "\n")
+
             f.write(rf"      Sundays Red: {SUNDAYS_RED} \\" + "\n")
             f.write(rf"      Paper: {CURRENT_PAPER_KEY.replace('_', r'\_')} \\" + "\n")
             f.write(rf"      Test Mode: {test_mode} \\" + "\n")
             f.write(rf"      Spread: {spread_mode} ({DAYS_PER_PAGE} day/page) \\" + "\n")
             f.write(rf"      Align: {align_mode} \\" + "\n")
-            f.write(rf"      Generated: {now_str}" + "\n")
+            f.write(rf"      Whimsy: {whimsy} | Kanji: {kanji_enabled} \\" + "\n")
+            f.write(rf"      ToC: {toc_enabled} | Events: {event_lists_enabled} \\" + "\n")
+            f.write(rf"      Source: {include_source} | Single Pass: {single_pass} \\" + "\n")
+            f.write(rf"      Generated: {now_str} \\" + "\n")
+            f.write(r"      \vspace{1mm}" + "\n")
+            f.write(r"      \parbox{\linewidth}{\flushright \tiny \textbf{Command:} " + cmd_str_safe + r"}" + "\n")
             f.write(r"    \end{minipage}" + "\n")
             f.write(r"  };" + "\n")
             f.write(r"\end{tikzpicture}" + "\n")
@@ -784,6 +951,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 
                 ensure_parity(page_num)
                 f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
+                f.write(r"\phantomsection" + "\n")
                 f.write(rf"\label{{sec:month_{month}}}" + "\n")
                 
                 f.write(r"\begin{center}" + "\n")
@@ -946,17 +1114,28 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
                         # Build the header line
                         if align_right:
-                            # Labels on Right (Right Page)
+                            # Labels on Right (Right Page in Mirrored Mode)
                             f.write(r"\hfill ")
                             if show_month:
                                 f.write(rf"{month_str} \quad ")
                             f.write(rf"\makebox[{YEAR_LABEL_WIDTH}mm][r]{{{day_str}}}")
                         else:
-                            # Labels on Left (Left Page)
+                            # Labels on Left (Left Page OR Left-Align Mode)
                             f.write(rf"\makebox[{YEAR_LABEL_WIDTH}mm][l]{{{day_str}}}")
-                            if show_month:
-                                f.write(rf" \quad {month_str}")
-                            f.write(r" \hfill")
+                            
+                            # Special Case: Left Align Mode on Odd (Right) Page
+                            # User Request: Month name right-justified but offset by YEAR_LABEL_WIDTH
+                            if align_mode == "left" and page_num % 2 != 0:
+                                if show_month:
+                                    f.write(r"\hfill ")
+                                    f.write(rf"{month_str} \makebox[{YEAR_LABEL_WIDTH}mm][r]{{}}")
+                                else:
+                                    f.write(r" \hfill")
+                            else:
+                                # Standard Left behavior
+                                if show_month:
+                                    f.write(rf" \quad {month_str}")
+                                f.write(r" \hfill")
 
                         f.write(r"\end{minipage}")
                         f.write(r"\par \nointerlineskip")
@@ -996,14 +1175,39 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                             f.write(rf"\path[use as bounding box] (0,0) rectangle ({w}, {h});" + "\n")
 
                             line_spacing = h / NUM_WRITING_LINES
-                            circle_radius = line_spacing * 0.25
+                            circle_radius = line_spacing * 0.35
+
+                            # Dynamic Font Sizing based on line spacing (mm)
+                            # 1mm ~= 2.83pt. We use a factor to make the text fill the line height.
+                            # Factor 2.2 results in ~12pt font for 5.5mm line spacing.
+                            fs_mm_factor = 2.2
+                            fs_year_pt = line_spacing * fs_mm_factor
+                            fs_day_pt = line_spacing * fs_mm_factor * 0.9 # Day slightly smaller/lighter
+                            fs_p_pt = line_spacing * fs_mm_factor * 0.9 
+                            
+                            font_year = rf"\fontsize{{{fs_year_pt:.1f}}}{{{fs_year_pt*1.2:.1f}}}\selectfont"
+                            font_day = rf"\fontsize{{{fs_day_pt:.1f}}}{{{fs_day_pt*1.2:.1f}}}\selectfont"
+                            font_p = rf"\fontsize{{{fs_p_pt:.1f}}}{{{fs_p_pt*1.2:.1f}}}\selectfont"
 
                             if not skip_content:
-                                # Align labels to match header alignment
+                                # Split Year and Day into separate nodes to align precisely with the first two writing lines
+                                year_y = h
+                                day_y = h - line_spacing
+                                
                                 if align_right:
-                                    f.write(rf"\node[anchor=north east, text width={YEAR_LABEL_WIDTH}mm, align=right, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at ({w},{h}) {{\textbf{{{label_year}}}\\ \small \color{{{day_color}}} {label_day}}};" + "\n")
+                                    anchor = "north east"
+                                    x_pos = w
+                                    align_txt = "right"
                                 else:
-                                    f.write(rf"\node[anchor=north west, text width={YEAR_LABEL_WIDTH}mm, align=left, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at (0,{h}) {{\textbf{{{label_year}}}\\ \small \color{{{day_color}}} {label_day}}};" + "\n")
+                                    anchor = "north west"
+                                    x_pos = 0
+                                    align_txt = "left"
+
+                                # Year Node (Line 1 space)
+                                f.write(rf"\node[anchor={anchor}, text width={YEAR_LABEL_WIDTH}mm, align={align_txt}, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at ({x_pos},{year_y}) {{{font_year} \textbf{{{label_year}}}}};" + "\n")
+                                
+                                # Day Node (Line 2 space)
+                                f.write(rf"\node[anchor={anchor}, text width={YEAR_LABEL_WIDTH}mm, align={align_txt}, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at ({x_pos},{day_y}) {{{font_day} \color{{{day_color}}} {label_day}}};" + "\n")
 
                             # Top Border (First block only)
                             if y_idx == 0:
@@ -1040,11 +1244,11 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
                                 # Continuation 'p' prompt
                                 # Anchor to bottom writing guide (y=0) to avoid touching top guide
-                                f.write(rf"\node[anchor=south east, inner sep=0, text=textgray, yshift=0.5mm] at ({w}-6, 0) {{\small $\vec{{p}}$}};" + "\n")
+                                f.write(rf"\node[anchor=south east, inner sep=0, text=textgray, yshift=0.5mm] at ({w}-8, 0) {{{font_p} $\vec{{p}}$}};" + "\n")
 
                                 for l in range(1, NUM_WRITING_LINES):
                                     y_pos = h - l * line_spacing
-                                    if l == 1:
+                                    if l <= 2:
                                         # Shortened Guide Line
                                         if align_right:
                                             f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] (0, {y_pos}) -- ({w} - {guide_gap}, {y_pos});" + "\n")
@@ -1132,6 +1336,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 f.write(rf"\setcounter{{page}}{{{page_num}}}" + "\n")
                 
                 if i == 0:
+                    f.write(r"\phantomsection" + "\n")
                     f.write(r"\label{sec:extra_pages}" + "\n")
 
                 # --- HEADER ---
@@ -1206,6 +1411,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             
             # Landscape mode for source code
             f.write(r"\begin{landscape}" + "\n")
+            f.write(r"\phantomsection" + "\n")
             f.write(r"\section*{Source Code: forever\_journal.py}" + "\n")
             f.write(r"\label{sec:source}" + "\n")
             
@@ -1229,10 +1435,17 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             
             # Read and write the source code of this file
             # We must be careful not to print the end-listing tag literally, or it will break the LaTeX.
+            # We also sanitize non-ASCII characters (like Kanji) to prevent listings package errors.
             try:
                 with open(os.path.abspath(__file__), "r") as source_file:
                     for line in source_file:
-                        f.write(line)
+                        safe_line = ""
+                        for char in line:
+                            if ord(char) > 127:
+                                safe_line += f"<U+{ord(char):X}>"
+                            else:
+                                safe_line += char
+                        f.write(safe_line)
             except Exception as e:
                 f.write(f"# Error reading source code: {e}")
             
@@ -1293,19 +1506,67 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate Forever Journal LaTeX")
+    layout_guide = """
+=== Forever Journal Layout Guide ===
+Use these tables to choose your --num-years and --num-lines based on paper size.
+Note: These calculations assume the default '--spread 4up' (2 days per page).
+      'Spacing' is the vertical height of one writing line.
+      'Volume' is the total linear writing length per day (Days lines * Width).
+
+--- A4 PAPER (274mm Usable Vert) ---
+Years | Lines | Spacing | Volume  | Feel
+------|-------|---------|---------|-------------------------
+  10  |   5   | 5.5 mm  | 45 cm   | Compact (Best for 10yr)
+  10  |   6   | 4.6 mm  | 54 cm   | Cramped
+   9  |   6   | 5.1 mm  | 54 cm   | Standard (Grid rule)
+   8  |   6   | 5.7 mm  | 54 cm   | Optimal / Standard
+   8  |   7   | 4.9 mm  | 63 cm   | High Volume / Tight
+   7  |   6   | 6.5 mm  | 54 cm   | Spacious
+   7  |   7   | 5.6 mm  | 63 cm   | High Volume Standard
+
+--- B5 PAPER (234mm Usable Vert) ---
+Years | Lines | Spacing | Volume  | Feel
+------|-------|---------|---------|-------------------------
+  10  |   5   | 4.7 mm  | 38 cm   | Very Tight
+   8  |   5   | 5.8 mm  | 38 cm   | Comfortable / Low Vol
+   8  |   6   | 4.9 mm  | 46 cm   | Tight / Good Vol
+   6  |   6   | 6.5 mm  | 46 cm   | Very Relaxed
+   6  |   7   | 5.6 mm  | 53 cm   | Classic Sweet Spot
+   5  |   7   | 6.7 mm  | 53 cm   | Large / Child Friendly
+
+Tip: Start with A4/8yr/6lines or B5/6yr/7lines for a balanced experience.
+"""
+    parser = argparse.ArgumentParser(
+        description="Generate Forever Journal LaTeX",
+        epilog=layout_guide,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--test", action="store_true", help="Generate a test PDF with specific leap year spreads")
-    parser.add_argument("--spread", choices=["2up", "4up"], default="2up", help="2up = 1 day/page, 4up = 2 days/page")
-    parser.add_argument("--align", choices=["mirrored", "left"], default="mirrored", help="mirrored = Outer aligned, left = Left aligned")
+    parser.add_argument("--spread", choices=["2up", "4up"], default="4up", help="2up = 1 day/page, 4up = 2 days/page (default: 4up)")
+    parser.add_argument("--align", choices=["mirrored", "left"], default="left", help="mirrored = Outer aligned, left = Left aligned (default: left)")
+    parser.add_argument("--paper", choices=["A4", "US_LETTER", "JIS_B5"], default="A4", help="Paper size (default: A4)")
     parser.add_argument("--no-compile", action="store_true", help="Skip automatic PDF compilation")
     parser.add_argument("--include-source", action="store_true", help="Append source code to the PDF")
     parser.add_argument("--toc", action="store_true", help="Include Table of Contents (requires 2-pass compilation)")
-    parser.add_argument("--whimsy", action="store_true", help="Add icons and colors to special days")
+    parser.add_argument("--no-whimsy", action="store_true", help="Disable icons and colors to special days")
+    parser.add_argument("--no-kanji", action="store_true", help="Disable Japanese Kanji in day labels")
+    parser.add_argument("--no-sundays-red", action="store_true", help="Disable red color for Sundays")
     parser.add_argument("--single-pass", action="store_true", help="Run pdflatex only once (faster, but ToC/Edge Index may be broken)")
     parser.add_argument("--event-lists", action="store_true", help="Enable Event List filler pages")
-    parser.add_argument("--kanji", action="store_true", help="Add Japanese Kanji to day labels")
-    parser.add_argument("--num-years", type=int, default=10, help="Number of years to track (default: 10)")
-    parser.add_argument("--num-lines", type=int, default=5, help="Number of writing lines per block (default: 5)")
+    parser.add_argument("--num-years", type=int, default=8, help="Number of years to track (default: 8)")
+    parser.add_argument("--num-lines", type=int, default=6, help="Number of writing lines per block (default: 6)")
     args = parser.parse_args()
 
-    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source, toc_enabled=args.toc, whimsy=args.whimsy, single_pass=args.single_pass, event_lists_enabled=args.event_lists, kanji_enabled=args.kanji, num_years=args.num_years, num_writing_lines=args.num_lines)
+    # Update Paper Configuration
+    CURRENT_PAPER_KEY = args.paper
+    PAPER = PAPER_SIZES[CURRENT_PAPER_KEY]
+    PAGE_W = PAPER["w"]
+    PAGE_H = PAPER["h"]
+    CALC_TEXT_WIDTH = PAGE_W - TARGET_MARGIN_INNER - TARGET_MARGIN_OUTER
+    ESTIMATED_TEXT_HEIGHT = PAGE_H - TARGET_MARGIN_TOP - TARGET_MARGIN_BOTTOM
+
+    # Update Sunday Color
+    if args.no_sundays_red:
+        SUNDAYS_RED = False
+
+    generate_tex(test_mode=args.test, spread_mode=args.spread, align_mode=args.align, no_compile=args.no_compile, include_source=args.include_source, toc_enabled=args.toc, whimsy=not args.no_whimsy, single_pass=args.single_pass, event_lists_enabled=args.event_lists, kanji_enabled=not args.no_kanji, num_years=args.num_years, num_writing_lines=args.num_lines)
