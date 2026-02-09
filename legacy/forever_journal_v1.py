@@ -598,8 +598,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         return False
 
     # Column Layout
-    COLUMN_GUTTER = 4  # mm
-    SAFETY_MARGIN = 2.5 # mm: Prevent Overfull \hbox warnings (Increased to suppress persistent 3pt overflows)
+    COLUMN_GUTTER = 3  # mm
+    SAFETY_MARGIN = 0 # mm: Reverted to 0 to fix regression causing large 13mm gutters
     if DAYS_PER_PAGE == 2:
         COL_WIDTH = (CALC_TEXT_WIDTH - COLUMN_GUTTER) / 2 - SAFETY_MARGIN
     else:
