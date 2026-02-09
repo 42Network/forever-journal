@@ -6,6 +6,11 @@
 
 A Python and LaTeX project to generate a custom, archival-quality 10-Year Journal.
 
+### 🌟 Key Differentiator: The "Reasonable Binder" Factor
+Unlike other 5- or 10-year journals that require thick, heavy custom binding, **Forever Journal** is engineered to fit an entire decade (~366 days) onto just **~100 sheets of A4 paper**.
+*   **4 Days per Spread:** By fitting 4 days on a single folded sheet (2 days front, 2 days back), the total thickness remains under 15mm.
+*   **Standard Binders:** This allows the entire 10-year volume to fit comfortably into a high-quality standard **25mm loose-leaf binder** (like Maruman Giuris), making it portable and refillable.
+
 ## Project Goal
 To engineer a "Forever Journal" layout that fits 10 years of daily entries onto A4 paper, designed for binding in a high-quality Japanese binder (e.g., Maruman Giuris).
 
@@ -13,7 +18,7 @@ To engineer a "Forever Journal" layout that fits 10 years of daily entries onto 
 *   **Format:** A4 Size (210mm x 297mm)
 *   **Binding:** 30-Hole System (requires specific inner margins)
 *   **Paper:** Recommended Maruman 80gsm A4 Loose Leaf or Kokuyo KB 64gsm.
-*   **Capacity:** Approx. 100 sheets total (Double-sided printing).
+*   **Capacity:** **~100 sheets total**. This is the critical spec that allows a full decade to fit in standard 25mm binder rings.
 
 ## Layout Specifications
 *   **Density:** 4 Days per Spread (2 Days per Page).

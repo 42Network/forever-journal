@@ -912,7 +912,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"\begin{itemize}" + "\n")
             f.write(r"\setlength\itemsep{-0.2em}" + "\n")
             f.write(r"\item Multi-year layout with $\sim$5 lines for daily writing starting/ending on years of your choice" + "\n")
-            f.write(r"\item Fits a full year on $\sim$100 sheets (4-day spread) or 200 sheets (2-day spread) fitting 25mm binders" + "\n")
+            f.write(r"\item Fits a full decade on $\sim$100 sheets (4-day spread) enabling use of standard 25mm binders" + "\n")
             f.write(r"\item Dates and day of week pre-filled; continuation pages for long days" + "\n")
             f.write(r"\item Special days included (birthdays, etc.); Monthly and Yearly summary pages" + "\n")
             f.write(r"\item Edge index for months" + "\n")
