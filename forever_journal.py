@@ -143,6 +143,7 @@ SPECIAL_DAYS = {
         {"name": "Japan Fukuoka Mission", "date": "1988-08-24"},
         {"name": "Texas Return", "date": "2011-12-20"},
         {"name": "Wylie Move", "date": "2015-06-19"},
+        {"name": "BofA Start", "date": "2019-07-15"},
     ]
 
 }
@@ -598,10 +599,11 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
     # Column Layout
     COLUMN_GUTTER = 4  # mm
+    SAFETY_MARGIN = 2.5 # mm: Prevent Overfull \hbox warnings (Increased to suppress persistent 3pt overflows)
     if DAYS_PER_PAGE == 2:
-        COL_WIDTH = (CALC_TEXT_WIDTH - COLUMN_GUTTER) / 2
+        COL_WIDTH = (CALC_TEXT_WIDTH - COLUMN_GUTTER) / 2 - SAFETY_MARGIN
     else:
-        COL_WIDTH = CALC_TEXT_WIDTH
+        COL_WIDTH = CALC_TEXT_WIDTH - SAFETY_MARGIN
 
     with open(output_tex, "w") as f:
         # --- PREAMBLE ---
@@ -645,9 +647,19 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 }
 \makeatother
 
+% Helper component to shrink text if it exceeds a maximum width
+\newcommand{\myfittext}[2]{%
+  \sbox0{#2}%
+  \ifdim\wd0>#1%
+    \resizebox{#1}{!}{\usebox0}%
+  \else%
+    \usebox0%
+  \fi%
+}
+
 % Color Definitions
-\definecolor{guidegray}{cmyk}{0,0,0,0.4} % Darker guide lines
-\definecolor{bordergray}{cmyk}{0,0,0,0.7} % Darker border lines
+\definecolor{guidegray}{cmyk}{0,0,0,0.6} % Darker guide lines
+\definecolor{bordergray}{cmyk}{0,0,0,0.9} % Darker border lines
 \definecolor{textgray}{cmyk}{0,0,0,0.6}   % Date labels
 \definecolor{sundayred}{cmyk}{0,1,1,0} % Pure Red for Sundays
 
@@ -673,16 +685,25 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             # Title at Top
             f.write(r"{\Huge \textbf{Forever Journal} \par}" + "\n")
             f.write(r"\vspace{0.5cm}" + "\n")
-            f.write(rf"{{\Large {START_YEAR} -- {START_YEAR + NUM_YEARS - 1} \par}}" + "\n")
+            
+            # Convert num years to word if simple integer
+            num_words_map = {1:"One", 2:"Two", 3:"Three", 4:"Four", 5:"Five", 6:"Six", 7:"Seven", 8:"Eight", 9:"Nine", 10:"Ten", 11:"Eleven", 12:"Twelve"}
+            num_years_word = num_words_map.get(NUM_YEARS, str(NUM_YEARS))
+            
+            f.write(rf"{{\Large {num_years_word} Years: {START_YEAR} -- {START_YEAR + NUM_YEARS - 1} \par}}" + "\n")
             f.write(r"\vspace{1cm}" + "\n")
             
-            # Two Columns: Special Days (Left) | ToC (Right)
+            # Two Columns: Special Days (Left) | Features & ToC (Right)
             f.write(r"\begin{minipage}[t]{0.48\textwidth}" + "\n")
+            f.write(r"\vspace{0pt}" + "\n")
+            f.write(r"\centering" + "\n")
+            f.write(r"\setlength{\fboxsep}{3mm}" + "\n") # Uniform padding
+            f.write(r"\fbox{\begin{minipage}{0.95\linewidth}" + "\n")
             f.write(r"\centering" + "\n")
             f.write(r"\textbf{Special Days} \par \vspace{2mm}" + "\n")
             f.write(r"{\scriptsize" + "\n")
             f.write(r"\begin{tabular}{ll}" + "\n")
-            f.write(r"\textbf{Annual} & \textbf{Rule/Date} \\" + "\n")
+            f.write(r"\textbf{Holidays} & \textbf{Rule/Date} \\" + "\n")
             for item in SPECIAL_DAYS["annual"]:
                 name = item['name']
                 if whimsy and name in WHIMSY_STYLES:
@@ -699,8 +720,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"& \\" + "\n")
             f.write(r"\textbf{Birthdays} & \textbf{Date} \\" + "\n")
             
-            # Sort Birthdays by Month, Day
-            sorted_birthdays = sorted(SPECIAL_DAYS["birthdays"], key=lambda x: (int(x['date'].split('-')[1]), int(x['date'].split('-')[2])))
+            # Sort Birthdays by Date Ascending
+            sorted_birthdays = sorted(SPECIAL_DAYS["birthdays"], key=lambda x: x['date'])
             
             for item in sorted_birthdays:
                 name = item['name'].replace("&", r"\&")
@@ -734,8 +755,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"& \\" + "\n")
             f.write(r"\textbf{Anniversaries} & \textbf{Date} \\" + "\n")
             
-            # Sort Anniversaries by Month, Day
-            sorted_anniversaries = sorted(SPECIAL_DAYS["anniversaries"], key=lambda x: (int(x['date'].split('-')[1]), int(x['date'].split('-')[2])))
+            # Sort Anniversaries by Date Ascending
+            sorted_anniversaries = sorted(SPECIAL_DAYS["anniversaries"], key=lambda x: x['date'])
             
             for item in sorted_anniversaries:
                 name = item['name'].replace("&", r"\&")
@@ -768,7 +789,9 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             # Education
             f.write(r"& \\" + "\n")
             f.write(r"\textbf{Education} & \textbf{Date} \\" + "\n")
-            sorted_education = sorted(SPECIAL_DAYS.get("education", []), key=lambda x: (int(x['date'].split('-')[1]), int(x['date'].split('-')[2])))
+            
+            # Sort Education by Date Ascending
+            sorted_education = sorted(SPECIAL_DAYS.get("education", []), key=lambda x: x['date'])
             
             for item in sorted_education:
                 name = item['name'].replace("&", r"\&")
@@ -801,7 +824,9 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             # Other
             f.write(r"& \\" + "\n")
             f.write(r"\textbf{Other} & \textbf{Date} \\" + "\n")
-            sorted_other = sorted(SPECIAL_DAYS.get("other", []), key=lambda x: (int(x['date'].split('-')[1]), int(x['date'].split('-')[2])))
+            
+            # Sort Other by Date Ascending
+            sorted_other = sorted(SPECIAL_DAYS.get("other", []), key=lambda x: x['date'])
             
             for item in sorted_other:
                 name = item['name'].replace("&", r"\&")
@@ -833,16 +858,27 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
             f.write(r"\end{tabular}" + "\n")
             f.write(r"}" + "\n")
+            f.write(r"\end{minipage}}" + "\n")
             f.write(r"\end{minipage}" + "\n")
             
             f.write(r"\hfill" + "\n")
             
             f.write(r"\begin{minipage}[t]{0.48\textwidth}" + "\n")
+            f.write(r"\vspace{0pt}" + "\n")
             f.write(r"\centering" + "\n")
+
             if toc_enabled:
-                f.write(r"\textbf{Table of Contents} \par \vspace{2mm}" + "\n")
-                f.write(r"\begin{tabular}{lr}" + "\n") # Use tabular for alignment
+                f.write(r"\setlength{\fboxsep}{3mm}" + "\n") # Uniform padding
+                f.write(r"\fbox{\begin{minipage}{0.95\linewidth}" + "\n")
+                f.write(r"\centering" + "\n")
+                f.write(r"\small" + "\n") # Font size for table
+                f.write(r"\begin{tabular}{@{} l r @{}}" + "\n") # Use tabular for alignment, no side padding
+                f.write(r"\multicolumn{2}{c}{\textbf{Table of Contents}} \\[2mm]" + "\n")
                 f.write(r"\hyperref[sec:title]{Title Page} & \pageref{sec:title} \\" + "\n")
+                
+                # Add Yearly Summary
+                f.write(r"\hyperref[sec:yearly_summary]{Yearly Summary} & \pageref{sec:yearly_summary} \\" + "\n")
+
                 for m in range(1, 13):
                     m_name = calendar.month_name[m]
                     if is_test_content("MONTH_SUMMARY", month=m):
@@ -862,6 +898,31 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 if include_source:
                     f.write(r"\hyperref[sec:source]{Source Code} & \pageref{sec:source} \\" + "\n")
                 f.write(r"\end{tabular}" + "\n")
+                f.write(r"\end{minipage}}" + "\n")
+                f.write(r"\par" + "\n")
+            
+            f.write(r"\vspace{20mm}" + "\n")
+
+            # -- FEATURES START --
+            f.write(r"\setlength{\fboxsep}{3mm}" + "\n") # Uniform padding
+            f.write(r"\fbox{\begin{minipage}{0.95\linewidth}" + "\n")
+            f.write(r"\centering" + "\n")
+            f.write(r"\textbf{Features} \par \vspace{2mm}" + "\n")
+            f.write(r"{\small \itshape \raggedright" + "\n")
+            f.write(r"\begin{itemize}" + "\n")
+            f.write(r"\setlength\itemsep{-0.2em}" + "\n")
+            f.write(r"\item Multi-year layout with $\sim$5 lines for daily writing starting/ending on years of your choice" + "\n")
+            f.write(r"\item Fits a full year on $\sim$100 sheets (4-day spread) or 200 sheets (2-day spread) fitting 25mm binders" + "\n")
+            f.write(r"\item Dates and day of week pre-filled; continuation pages for long days" + "\n")
+            f.write(r"\item Special days included (birthdays, etc.); Monthly and Yearly summary pages" + "\n")
+            f.write(r"\item Edge index for months" + "\n")
+            f.write(r"\item Options for paper, lines, icons, Kanji" + "\n")
+            f.write(r"\item Source code included in appendix" + "\n")
+            f.write(r"\end{itemize}" + "\n")
+            f.write(r"}" + "\n")
+            f.write(r"\end{minipage}}" + "\n")
+            # -- FEATURES END --
+
             f.write(r"\end{minipage}" + "\n")
             
             f.write(r"\vfill" + "\n")
@@ -885,42 +946,210 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             stat_col_width = (CALC_TEXT_WIDTH - COLUMN_GUTTER) / 2 if DAYS_PER_PAGE == 2 else CALC_TEXT_WIDTH
             stat_writing_vol_cm = (stat_col_width * NUM_WRITING_LINES) / 10 # mm to cm
 
-
             f.write(r"\begin{tikzpicture}[remember picture, overlay]" + "\n")
-            f.write(rf"  \node[anchor=south east, xshift=-{TARGET_MARGIN_OUTER}mm, yshift=1cm] at (current page.south east) {{" + "\n")
-            f.write(r"    \begin{minipage}{12cm}" + "\n") # Widened to 12cm
-            f.write(r"      \flushright \small \ttfamily" + "\n")
-            f.write(rf"      Start Year: {START_YEAR} \\" + "\n")
-            f.write(rf"      Num Years: {NUM_YEARS} \\" + "\n")
-            f.write(rf"      Lines/Day: {NUM_WRITING_LINES} ({final_line_spacing:.2f}mm spacing) \\" + "\n")
-            f.write(rf"      Volume/Day: {stat_writing_vol_cm:.1f} cm \\" + "\n")
+            f.write(rf"  \node[anchor=south, yshift={TARGET_MARGIN_BOTTOM}mm] at (current page.south) {{" + "\n")
+            f.write(r"    \begin{minipage}{\textwidth}" + "\n") # Full width
+            f.write(r"      \centering \ttfamily \scriptsize" + "\n") # Monospaced, scriptsize
+            f.write(r"      \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} l l l l @{}}" + "\n")
             
+            # Row 1
+            f.write(rf"      Start Year: {START_YEAR} & Paper: {CURRENT_PAPER_KEY.replace('_', r'\_')} & Whimsy: {whimsy} & Test Mode: {test_mode} \\" + "\n")
+            # Row 2
+            f.write(rf"      Num Years: {NUM_YEARS} & Spread: {spread_mode} & Sundays Red: {SUNDAYS_RED} & Events: {event_lists_enabled} \\" + "\n")
+            # Row 3
+            f.write(rf"      Lines/Day: {NUM_WRITING_LINES} ({final_line_spacing:.2f}mm) & Align: {align_mode} & Kanji: {kanji_enabled} & Source: {include_source} \\" + "\n")
+            # Row 4
+            thick_str = ""
             if toc_enabled:
-                 # Use PGF Math to calculate thickness based on correct LastPage reference
-                 # Thickness factor: 0.0463 mm/page
-                 f.write(r"      % Thickness Calculation" + "\n")
-                 f.write(r"      \newcounter{totalpg}" + "\n")
-                 f.write(r"      \setcounter{totalpg}{\getpagerefnumber{LastPage}}" + "\n")
-                 f.write(r"      \pgfmathparse{\thetotalpg * 0.0463}" + "\n")
-                 f.write(r"      Thickness: ~\pgfmathprintnumber[fixed, precision=1]{\pgfmathresult} mm (\thetotalpg~pgs) \\" + "\n")
+                 thick_str = r"Thickness: \pgfmathparse{\getpagerefnumber{LastPage}*0.0463}\pgfmathprintnumber[fixed, precision=1]{\pgfmathresult} mm"
+            else:
+                 thick_str = ""
+            
+            f.write(rf"      Volume/Day: {stat_writing_vol_cm:.1f} cm & {thick_str} & & \\" + "\n") # Cols 3 and 4 empty
 
-            f.write(rf"      Sundays Red: {SUNDAYS_RED} \\" + "\n")
-            f.write(rf"      Paper: {CURRENT_PAPER_KEY.replace('_', r'\_')} \\" + "\n")
-            f.write(rf"      Test Mode: {test_mode} \\" + "\n")
-            f.write(rf"      Spread: {spread_mode} ({DAYS_PER_PAGE} day/page) \\" + "\n")
-            f.write(rf"      Align: {align_mode} \\" + "\n")
-            f.write(rf"      Whimsy: {whimsy} | Kanji: {kanji_enabled} \\" + "\n")
-            f.write(rf"      ToC: {toc_enabled} | Events: {event_lists_enabled} \\" + "\n")
-            f.write(rf"      Source: {include_source} | Single Pass: {single_pass} \\" + "\n")
-            f.write(rf"      Generated: {now_str} \\" + "\n")
-            f.write(r"      \vspace{1mm}" + "\n")
-            f.write(r"      \parbox{\linewidth}{\flushright \tiny \textbf{Command:} " + cmd_str_safe + r"}" + "\n")
+            f.write(r"      \end{tabular*}" + "\n")
+            f.write(r"      \par \vspace{3mm}" + "\n")
+            f.write(r"      \setlength{\fboxsep}{3mm}" + "\n") # Uniform padding
+            f.write(r"      \fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{Command: " + cmd_str_safe + r" \hfill Generated: " + now_str + r"}}" + "\n")
             f.write(r"    \end{minipage}" + "\n")
             f.write(r"  };" + "\n")
             f.write(r"\end{tikzpicture}" + "\n")
 
             f.write(r"\end{titlepage}" + "\n")
             physical_page_count += 1
+
+        # --- YEARLY SUMMARY (Page 2) ---
+        if is_test_content("TITLE"): 
+            ensure_parity(2) # Ensure we are on an Even page (Left side)
+            f.write(rf"\setcounter{{page}}{{2}}" + "\n")
+            f.write(r"\phantomsection" + "\n")
+            f.write(r"\label{sec:yearly_summary}" + "\n")
+            
+            f.write(r"\begin{center}" + "\n")
+            f.write(r"{\Large \textbf{Yearly Summary}} \par" + "\n")
+            f.write(r"\end{center}" + "\n")
+            f.write(r"\vspace{3mm}" + "\n")
+
+            # Prepare Data grouped by Month
+            month_events = {m: [] for m in range(1, 13)}
+            
+            # 1. Special Days (Annual)
+            for item in SPECIAL_DAYS["annual"]:
+                m = item.get('month')
+                if m is None and 'rule' in item:
+                    # Guess month from rule for Summary placement
+                    rule = item['rule'].lower()
+                    if 'jan' in rule: m = 1
+                    elif 'feb' in rule: m = 2
+                    elif 'mar' in rule: m = 3
+                    elif 'apr' in rule: m = 4
+                    elif 'may' in rule: m = 5
+                    elif 'jun' in rule: m = 6
+                    elif 'jul' in rule: m = 7
+                    elif 'aug' in rule: m = 8
+                    elif 'sep' in rule: m = 9
+                    elif 'oct' in rule: m = 10
+                    elif 'nov' in rule: m = 11
+                    elif 'dec' in rule: m = 12
+                    elif 'easter' in rule: m = 4 # Places Easter in April
+                    elif 'election' in rule: m = 11
+                
+                if m is None:
+                    continue
+
+                d = item.get('day', 0)
+                name = item['name'].replace("&", r"\&")
+                icon = ""
+                if whimsy and item['name'] in WHIMSY_STYLES:
+                     s = WHIMSY_STYLES[item['name']]
+                     icon = rf"\textcolor{{{s['color']}}}{{{s['icon']}}}"
+                
+                # Store structured data
+                day_disp = str(d) if d > 0 else ""
+                month_events[m].append({'sort': (0, d), 'day': day_disp, 'icon': icon, 'name': name})
+
+            # Helper to process other lists
+            def add_dated_events(category_key, icon_key_default, priority):
+                for item in SPECIAL_DAYS.get(category_key, []):
+                    dt = datetime.datetime.strptime(item['date'], "%Y-%m-%d")
+                    m = dt.month
+                    d = dt.day
+                    name = item['name'].replace("&", r"\&")
+                    
+                    icon = ""
+                    if whimsy:
+                         # Try specific style first, then category default
+                         s = WHIMSY_STYLES.get(item['name']) 
+                         if not s:
+                             s = WHIMSY_STYLES.get(icon_key_default)
+                         
+                         if s:
+                             icon = rf"\textcolor{{{s['color']}}}{{{s['icon']}}}"
+                    
+                    month_events[m].append({'sort': (priority, d), 'day': str(d), 'icon': icon, 'name': name})
+
+            add_dated_events("birthdays", "Birthday", 1)
+            add_dated_events("anniversaries", "Anniversary", 2)
+            add_dated_events("education", "Education", 3)
+            add_dated_events("other", "Other", 4)
+
+            # Sort events in each month
+            for m in range(1, 13):
+                month_events[m].sort(key=lambda x: x['sort'])
+
+            # Render Grid - Full Page TikZ
+            # Calculate grid dimensions based on page size and margins
+            # Margins: Top=TARGET_MARGIN_TOP, Bottom=TARGET_MARGIN_BOTTOM, Inner/Outer
+            # We are on a full page now.
+            
+            # Usable height
+            usable_h = PAGE_H - TARGET_MARGIN_TOP - TARGET_MARGIN_BOTTOM - 20 # 20mm for header/buffer
+            
+            # Grid Dimensions
+            rows = 4
+            cols = 3
+            cell_h = usable_h / rows
+            cell_w = CALC_TEXT_WIDTH / cols
+            
+            f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm]" + "\n")
+            
+            # Draw Grid
+            for r in range(rows):
+                for c in range(cols):
+                    # Box Top/Left coordinates
+                    # Y goes UP in TikZ. 0 is bottom (technically relative to cursor here)
+                    # We'll draw relative to top left of the grid area
+                    
+                    x = c * cell_w
+                    y = - (r * cell_h)
+                    
+                    # Rectangle
+                    f.write(rf"\draw[bordergray] ({x}, {y}) rectangle ({x + cell_w}, {y - cell_h});" + "\n")
+                    
+                    # Content
+                    m_idx = (r * 3) + c + 1
+                    m_name = calendar.month_name[m_idx]
+                    
+                    # Month Header Node
+                    f.write(rf"\node[anchor=north west, font=\large\bfseries] at ({x + 2}, {y - 2}) {{{m_name}}};" + "\n")
+                    
+                    # Text Node - Anchored below header
+                    # Width = cell_w - padding
+                    # Height = cell_h - header_space
+                    text_w = cell_w - 4
+                    text_h = cell_h - 10
+                    
+                    # Minipage for content
+                    f.write(rf"\node[anchor=north west, inner sep=2mm] at ({x}, {y - 8}) {{" + "\n")
+                    f.write(rf"  \begin{{minipage}}[t][{text_h}mm][t]{{{text_w}mm}}" + "\n")
+                    
+                    if month_events[m_idx]:
+                        # Use direct boxes (makebox) instead of tabular to guarantee single-line behavior (no wrapping).
+                        # Previous tabular approach with 'l' column theoretically shouldn't wrap, but users reported spilling.
+                        # Explicit boxes give us full control.
+                        
+                        f.write(r"    \large" + "\n")
+                        f.write(r"    \setlength{\parskip}{0pt}" + "\n") # Tight vertical spacing
+                        
+                        # Calculate available width for the name
+                        # We allocate specific widths for Day and Icon to align them visually
+                        w_day  = 6.0  # mm
+                        w_gap  = 1.0  # mm
+                        w_icon = 5.0  # mm
+                        # w_gap again
+                        
+                        # Remaining width for name
+                        w_name = text_w - w_day - w_gap - w_icon - w_gap - 1.0 # -1.0 safety buffer
+                        
+                        for event in month_events[m_idx]:
+                            d_str = event['day']
+                            icon_str = event['icon']
+                            name_str = event['name']
+                            
+                            # Construct the line
+                            # \makebox[w_day][r]{day} \hspace{w_gap} \makebox[w_icon][c]{icon} \hspace{w_gap} \myfittext{w_name}{name} \par
+                            
+                            line_cmd = (
+                                rf"\makebox[{w_day}mm][r]{{{d_str}}}"
+                                rf"\hspace{{{w_gap}mm}}"
+                                rf"\makebox[{w_icon}mm][c]{{{icon_str}}}"
+                                rf"\hspace{{{w_gap}mm}}"
+                                rf"\myfittext{{{w_name:.1f}mm}}{{{name_str}}}"
+                                r"\par"
+                            )
+                            f.write(f"    {line_cmd}\n")
+                            
+                        # Remove the table environment closure as we are not using it
+                        # f.write(r"    \end{tabular}" + "\n") is NOT needed.
+
+                    
+                    f.write(r"  \end{minipage}" + "\n")
+                    f.write(r"};" + "\n")
+
+            f.write(r"\end{tikzpicture}" + "\n")
+
+            physical_page_count += 1
+            f.write(r"\newpage" + "\n")
 
         # We need a reference leap year to ensure we iterate through Feb 29.
         ref_year = START_YEAR
@@ -1063,10 +1292,12 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 for col_idx in range(DAYS_PER_PAGE):
                     # Separator between columns
                     if col_idx > 0:
-                        f.write(r"\hfill" + "\n")
+                        f.write(r"\hfill") # No newline to prevent space insertion
 
                     # Start Column Minipage
+                    f.write(r"\noindent")
                     f.write(rf"\begin{{minipage}}[t]{{{COL_WIDTH}mm}}" + "\n")
+                    f.write(r"\setlength{\parindent}{0pt}" + "\n")
 
                     # Determine Content for this Column
                     if col_idx < len(chunk):
@@ -1167,9 +1398,11 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                                     day_color = "textgray"
 
                             # --- DRAW THE BLOCK ---
-                            f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm, trim left=0mm, trim right={COL_WIDTH}mm]" + "\n")
+                            CONTENT_WIDTH = COL_WIDTH - 3.0 # Extra slack to prevent Overfull \hbox
+                            f.write(r"\noindent")
+                            f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm, trim left=0mm, trim right={CONTENT_WIDTH}mm]" + "\n")
 
-                            w = COL_WIDTH
+                            w = CONTENT_WIDTH
                             h = BLOCK_H
 
                             f.write(rf"\path[use as bounding box] (0,0) rectangle ({w}, {h});" + "\n")
@@ -1228,10 +1461,13 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                                         # Circle is at cx = circle_radius + 1
                                         # Text should start after circle
                                         x_text = (circle_radius + 1) + circle_radius + 1
-                                        f.write(rf"\node[anchor=west, inner sep=0, text=textgray, font=\footnotesize] at ({x_text}, {y_text}) {{{event_str}}};" + "\n")
+                                        avail_w = CONTENT_WIDTH - x_text - 1.0
+                                        f.write(rf"\node[anchor=west, inner sep=0, text=textgray, font=\footnotesize] at ({x_text}, {y_text}) {{\myfittext{{{avail_w:.1f}mm}}{{{event_str}}}}};" + "\n")
                                     else:
                                         # Text on Right (after label)
-                                        f.write(rf"\node[anchor=west, inner sep=0, text=textgray, font=\footnotesize] at ({guide_gap} + 1, {y_text}) {{{event_str}}};" + "\n")
+                                        x_text = guide_gap + 1
+                                        avail_w = CONTENT_WIDTH - x_text - 1.0
+                                        f.write(rf"\node[anchor=west, inner sep=0, text=textgray, font=\footnotesize] at ({x_text}, {y_text}) {{\myfittext{{{avail_w:.1f}mm}}{{{event_str}}}}};" + "\n")
 
                                 # Circles for first two lines (Inside end)
                                 for s in range(2):  # First two spaces
@@ -1265,10 +1501,10 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     
                     elif has_blank_col:
                         # Render Event List in the blank column -> CHANGED: Leave blank
-                        f.write(r"\hfill" + "\n")
+                        f.write(r"\hfill") # No newline to prevent space insertion
 
                     # End Column Minipage
-                    f.write(r"\end{minipage}" + "\n")
+                    f.write(r"\end{minipage}") # No newline to prevent space insertion
 
                 # Draw Edge Index
                 draw_edge_index(month)
@@ -1326,7 +1562,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         EXTRA_USABLE_H = USABLE_H - line_spacing
 
         # Calculate column width for 2 columns
-        EXTRA_COL_WIDTH = (CALC_TEXT_WIDTH - COLUMN_GUTTER) / 2
+        EXTRA_COL_WIDTH = (CALC_TEXT_WIDTH - COLUMN_GUTTER) / 2 - 1.0 # Safety margin
 
         num_lines_extra = int(EXTRA_USABLE_H / line_spacing)
 
