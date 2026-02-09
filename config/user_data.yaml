@@ -1,0 +1,133 @@
+# user_data.yaml
+# Personal events and special dates for the Forever Journal
+
+start_year: 2026
+num_years: 9
+
+special_days:
+  annual:
+    - name: "New Year's Day"
+      month: 1
+      day: 1
+    - name: "MLK Day"
+      rule: "3rd Mon Jan"
+    - name: "Valentine's Day"
+      month: 2
+      day: 14
+    - name: "President's Day"
+      rule: "3rd Mon Feb"
+    - name: "St. Patrick's Day"
+      month: 3
+      day: 17
+    - name: "Easter"
+      rule: "easter"
+    - name: "Mother's Day"
+      rule: "2nd Sun May"
+    - name: "Memorial Day"
+      rule: "last Mon May"
+    - name: "Father's Day"
+      rule: "3rd Sun Jun"
+    - name: "Juneteenth"
+      month: 6
+      day: 19
+    - name: "Independence Day"
+      month: 7
+      day: 4
+    - name: "Labor Day"
+      rule: "1st Mon Sep"
+    - name: "Columbus Day"
+      rule: "2nd Mon Oct"
+    - name: "Halloween"
+      month: 10
+      day: 31
+    - name: "Election Day"
+      rule: "election"
+    - name: "Veterans Day"
+      month: 11
+      day: 11
+    - name: "Thanksgiving"
+      rule: "4th Thu Nov"
+    - name: "Christmas"
+      month: 12
+      day: 25
+
+  birthdays:
+    - name: "Nathan"
+      date: "1968-11-29"
+    - name: "Dana"
+      date: "1968-09-26"
+    - name: "Benjamin"
+      date: "1995-08-18"
+    - name: "Thaddeus"
+      date: "1996-11-30"
+    - name: "Eli"
+      date: "2000-03-30"
+    - name: "Isaac"
+      date: "2003-08-28"
+    - name: "Lydia"
+      date: "2005-01-19"
+    - name: "Keren"
+      date: "2007-09-11"
+    - name: "Aaron"
+      date: "1971-02-28"
+    - name: "Esther"
+      date: "1973-01-24"
+    - name: "Rachel"
+      date: "1975-08-16"
+    - name: "Beth"
+      date: "1978-10-07"
+    - name: "Sarah"
+      date: "1984-03-26"
+    - name: "Bill"
+      date: "1943-03-09"
+    - name: "Pat"
+      date: "1945-04-15"
+    - name: "Keith"
+      date: "1949-10-25"
+    - name: "Judy"
+      date: "1950-11-26"
+    - name: "Amy"
+      date: "1971-04-19"
+    - name: "Monique"
+      date: "1996-09-28"
+    - name: "Luci & True"
+      date: "2023-03-21"
+    - name: "Tommy"
+      date: "2024-07-23"
+    - name: "Thaddeus II"
+      date: "2025-10-11"
+
+  anniversaries:
+    - name: "Nathan & Dana"
+      date: "1994-06-30"
+      icon: "ring" 
+    - name: "Bill & Pat"
+      date: "1967-07-07"
+    - name: "Keith & Judy"
+      date: "1967-11-18"
+    - name: "Ben & Mo"
+      date: "2019-08-02"
+    - name: "Tad & Missa"
+      date: "2022-12-21"
+    - name: "Aub & Tom"
+      date: "2024-08-16"
+
+  education:
+    - name: "Westwood HS"
+      date: "1986-06-06"
+    - name: "UT Austin BS ECE"
+      date: "1993-08-16"
+    - name: "St. Edwards MS CIS"
+      date: "2014-12-13"
+    - name: "UT Dallas PhD TE"
+      date: "2026-05-14"
+
+  other:
+    - name: "Japan Fukuoka Mission"
+      date: "1988-08-24"
+    - name: "Texas Return"
+      date: "2011-12-20"
+    - name: "Wylie Move"
+      date: "2015-06-19"
+    - name: "BofA Start"
+      date: "2019-07-15"

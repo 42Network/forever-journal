@@ -1,0 +1,43 @@
+# printer_profiles.yaml
+# Defines physical print characteristics for different hardware.
+
+profiles:
+  default_a4:
+    description: "Standard A4 layout with safe margins"
+    paper_size: "A4" # Refers to standard dimensions
+    width_mm: 210.0
+    height_mm: 297.0
+    margins:
+      inner: 15
+      outer: 9
+      top: 5
+      bottom: 12
+    # Style: "safe" insets tabs, "bleed" pushes them to true edge
+    edge_index_mode: "safe" 
+    duplex_offset_x: 0.0
+
+  default_letter:
+    description: "Standard US Letter layout"
+    paper_size: "US_LETTER"
+    width_mm: 215.9
+    height_mm: 279.4
+    margins:
+      inner: 15
+      outer: 9
+      top: 5
+      bottom: 12
+    edge_index_mode: "safe"
+
+  hp9015_nathan:
+    description: "Nathan's HP 9015 with Borderless A4"
+    paper_size: "A4"
+    width_mm: 210.0
+    height_mm: 297.0
+    margins:
+      inner: 15
+      outer: 9
+      top: 5
+      bottom: 12
+    # Nathan's printer supports full bleed edge printing
+    edge_index_mode: "bleed"
+    duplex_offset_x: 0.0

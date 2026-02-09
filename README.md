@@ -1,5 +1,9 @@
 # Forever Journal (2026–2035)
 
+> **⚠️ Project Status: Modernization in Progress**
+> *   **Stable Version (v1):** Located in `legacy/forever_journal_v1.py`. Use this for production printing (instructions below).
+> *   **Modern Version (v2/v3):** Currently being refactored into a modular `src/` structure with `config/` files. See `docs/MODERNIZATION_PLAN.md` for details.
+
 A Python and LaTeX project to generate a custom, archival-quality 10-Year Journal.
 
 ## Project Goal
@@ -49,7 +53,9 @@ The script dynamically calculates writing space based on paper size margins. The
 | **10 Years** | 6 | ~4.7 mm | Very tight. Requires precision writing. |
 
 ## Tech Stack
-*   **Logic:** Python 3 (`forever_journal.py`)
+*   **Logic:** Python 3
+    *   **Legacy:** `legacy/forever_journal_v1.py` (Single-script architecture).
+    *   **Modern:** `src/` modules (in progress).
     *   Handles date iteration (leap years).
     *   Calculates "Day of Week" for 10 years.
     *   Generates raw `.tex` content.
@@ -66,20 +72,19 @@ The script dynamically calculates writing space based on paper size margins. The
 
 ## Usage
 
-### 1. Generate & Compile
-Run the script. It will generate the LaTeX file in `output/` and automatically compile it to PDF if `pdflatex` is installed.
+### 1. Generate & Compile (Legacy v1)
+The stable version of the generator has been moved to the `legacy/` directory. Run the script from the project root.
 
 ```bash
 # Standard Generation (Full Journal)
-python3 forever_journal.py --spread 4up --align mirrored
+python3 legacy/forever_journal_v1.py --spread 4up --align mirrored
 
 # Whimsy Mode (Adds icons and colors to special days)
-python3 forever_journal.py --spread 4up --align mirrored --whimsy
+python3 legacy/forever_journal_v1.py --spread 4up --align mirrored --whimsy
 
 # Test Mode (Generates a small subset of pages for testing layout)
 # Captures: Title, Feb Summary, Feb 1-4, Feb 29, YM1, Dec 29-31, Extra Pages, Source Code.
-# Preserves even/odd page alignment for double-sided printing.
-python3 forever_journal.py --test --spread 4up --align mirrored
+python3 legacy/forever_journal_v1.py --test --spread 4up --align mirrored
 ```
 
 ### 2. Options
@@ -89,10 +94,10 @@ python3 forever_journal.py --test --spread 4up --align mirrored
 *   `--single-pass`: Run `pdflatex` only once. Faster for quick checks, but Edge Indexing and ToC references may be incorrect.
 
 ## Special Day Annotations
-The journal supports annotating special days (Holidays, Birthdays, Anniversaries) directly into the writing grid. These are configured in the `SPECIAL_DAYS` dictionary within `forever_journal.py`.
+The journal supports annotating special days (Holidays, Birthdays, Anniversaries) directly into the writing grid. These are configured in the `SPECIAL_DAYS` dictionary within `legacy/forever_journal_v1.py`.
 
 ### Configuration
-Edit the `SPECIAL_DAYS` dictionary at the top of `forever_journal.py`:
+Edit the `SPECIAL_DAYS` dictionary at the top of `legacy/forever_journal_v1.py`:
 
 ```python
 SPECIAL_DAYS = {
