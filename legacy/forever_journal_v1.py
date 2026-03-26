@@ -87,6 +87,7 @@ SPECIAL_DAYS = {
         {"name": "Valentine's Day", "month": 2, "day": 14},
         {"name": "President's Day", "rule": "3rd Mon Feb"},
         {"name": "St. Patrick's Day", "month": 3, "day": 17},
+        {"name": "DST Starts", "rule": "2nd Sun Mar"},
         {"name": "Easter", "rule": "easter"},
         {"name": "Mother's Day", "rule": "2nd Sun May"},
         {"name": "Memorial Day", "rule": "last Mon May"},
@@ -97,6 +98,7 @@ SPECIAL_DAYS = {
         {"name": "Columbus Day", "rule": "2nd Mon Oct"},
         {"name": "Halloween", "month": 10, "day": 31},
         {"name": "Election Day", "rule": "election"},
+        {"name": "DST Ends", "rule": "1st Sun Nov"},
         {"name": "Veterans Day", "month": 11, "day": 11},
         {"name": "Thanksgiving", "rule": "4th Thu Nov"},
         {"name": "Christmas", "month": 12, "day": 25},
@@ -126,6 +128,7 @@ SPECIAL_DAYS = {
         {"name": "Thaddeus II", "date": "2025-10-11"},
     ],
     "anniversaries": [
+        {"name": "I Like You", "date": "1994-02-27"},
         {"name": "Nathan & Dana", "date": "1994-06-30"},
         {"name": "Bill & Pat", "date": "1967-07-07"},
         {"name": "Keith & Judy", "date": "1967-11-18"},
@@ -336,6 +339,8 @@ WHIMSY_STYLES = {
     "Valentine's Day": {"icon": r"\faHeart", "color": "magenta"},
     "President's Day": {"icon": r"\faFlagUsa", "color": "blue"},
     "St. Patrick's Day": {"icon": r"\faLeaf", "color": "green"}, # Leaf as Shamrock
+    "DST Starts": {"icon": r"\faClock", "color": "orange"},
+    "DST Ends": {"icon": r"\faClock", "color": "orange"},
     "Easter": {"icon": r"\faEgg", "color": "violet"},
     "Mother's Day": {"icon": r"\faHeart", "color": "pink"},
     "Memorial Day": {"icon": r"\faFlagUsa", "color": "blue"},
@@ -448,7 +453,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             content = rf"{spacer}\rotatebox{{90}}{{\sffamily\bfseries\small {month_name}}}"
             f.write(rf"  \node[fill=black, text=white, anchor=north west, minimum width={box_width}mm, minimum height={segment_height}mm, yshift={y_shift}mm, inner sep=0pt] at (current page.north west) {{{content}}};" + "\n")
             
-        f.write(r"\end{tikzpicture}" + "\n")
+        f.write(r"\end{tikzpicture}%" + "\n")
 
     def render_event_list(event_list_num, width=None):
         """Renders an Event List column or page."""
@@ -461,7 +466,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
         is_even_page = (current_page_num % 2 == 0)
 
         # Header
-        f.write(rf"\begin{{minipage}}[t][{HEADER_H}mm]{{\textwidth}}")
+        f.write(rf"\begin{{minipage}}[t][{HEADER_H}mm]{{\textwidth}}\hfuzz=100pt\hbadness=10000\relax ")
         
         header_text = rf"\huge \textbf{{Event List {event_list_num}}}"
         
@@ -488,7 +493,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(rf"\path[use as bounding box] (0,0) rectangle ({w}, {h});" + "\n")
             
             # Year Label (Right aligned)
-            f.write(rf"\node[anchor=north east, text width={YEAR_LABEL_WIDTH}mm, align=right, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at ({w},{h}) {{\textbf{{{curr_year}}}}};" + "\n")
+            f.write(rf"\node[anchor=north east, align=right, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at ({w},{h}) {{\textbf{{{curr_year}}}}};" + "\n")
             
             # Column Headers (Date | Event | Date | Event | Date | Event)
             # 3 Groups
@@ -599,7 +604,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
     # Column Layout
     COLUMN_GUTTER = 3  # mm
-    SAFETY_MARGIN = 0 # mm: Reverted to 0 to fix regression causing large 13mm gutters
+    SAFETY_MARGIN = 0.5 # mm: Restored to small non-zero value to prevent tiny overfull \hbox warnings
     if DAYS_PER_PAGE == 2:
         COL_WIDTH = (CALC_TEXT_WIDTH - COLUMN_GUTTER) / 2 - SAFETY_MARGIN
     else:
@@ -639,6 +644,11 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 \setlength{\parskip}{0pt}
 \raggedbottom % Prevent underfull vbox warnings and forced vertical stretching
 
+% Suppress minor layout warnings that spam the log and slow down compilation
+\hfuzz=10pt 
+\vfuzz=10pt
+\hbadness=10000
+
 \makeatletter
 \newcommand{\eventlistrow}[1]{%
   \@ifundefined{r@sec:event_list_#1}{}{%
@@ -672,6 +682,10 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
 
 \begin{document}
 \begin{CJK*}{UTF8}{min}
+\hfuzz=100pt 
+\vfuzz=100pt
+\hbadness=10000
+\vbadness=10000
 """)
 
         # --- COVER PAGE ---
@@ -695,10 +709,12 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             
             # Two Columns: Special Days (Left) | Features & ToC (Right)
             f.write(r"\begin{minipage}[t]{0.48\textwidth}" + "\n")
+            f.write(r"\hfuzz=100pt \hbadness=10000" + "\n")
             f.write(r"\vspace{0pt}" + "\n")
             f.write(r"\centering" + "\n")
             f.write(r"\setlength{\fboxsep}{3mm}" + "\n") # Uniform padding
             f.write(r"\fbox{\begin{minipage}{0.95\linewidth}" + "\n")
+            f.write(r"\hfuzz=100pt \hbadness=10000" + "\n")
             f.write(r"\centering" + "\n")
             f.write(r"\textbf{Special Days} \par \vspace{2mm}" + "\n")
             f.write(r"{\scriptsize" + "\n")
@@ -859,17 +875,19 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"\end{tabular}" + "\n")
             f.write(r"}" + "\n")
             f.write(r"\end{minipage}}" + "\n")
-            f.write(r"\end{minipage}" + "\n")
+            f.write(r"\end{minipage}%" + "\n")
             
             f.write(r"\hfill" + "\n")
             
             f.write(r"\begin{minipage}[t]{0.48\textwidth}" + "\n")
+            f.write(r"\hfuzz=100pt \hbadness=10000" + "\n")
             f.write(r"\vspace{0pt}" + "\n")
             f.write(r"\centering" + "\n")
 
             if toc_enabled:
                 f.write(r"\setlength{\fboxsep}{3mm}" + "\n") # Uniform padding
                 f.write(r"\fbox{\begin{minipage}{0.95\linewidth}" + "\n")
+                f.write(r"\hfuzz=100pt \hbadness=10000" + "\n")
                 f.write(r"\centering" + "\n")
                 f.write(r"\small" + "\n") # Font size for table
                 f.write(r"\begin{tabular}{@{} l r @{}}" + "\n") # Use tabular for alignment, no side padding
@@ -906,6 +924,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             # -- FEATURES START --
             f.write(r"\setlength{\fboxsep}{3mm}" + "\n") # Uniform padding
             f.write(r"\fbox{\begin{minipage}{0.95\linewidth}" + "\n")
+            f.write(r"\hfuzz=100pt \hbadness=10000" + "\n")
             f.write(r"\centering" + "\n")
             f.write(r"\textbf{Features} \par \vspace{2mm}" + "\n")
             f.write(r"{\small \itshape \raggedright" + "\n")
@@ -916,6 +935,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"\item Dates and day of week pre-filled; continuation pages for long days" + "\n")
             f.write(r"\item Special days included (birthdays, etc.); Monthly and Yearly summary pages" + "\n")
             f.write(r"\item Edge index for months" + "\n")
+            f.write(r"\item 2 daily circles for checkmarks, weather, etc." + "\n")
+            f.write(r"\item ``P arrow'' indicator to indicate daily entry continues on an ``Extra Page''" + "\n")
             f.write(r"\item Options for paper, lines, icons, Kanji" + "\n")
             f.write(r"\item Source code included in appendix" + "\n")
             f.write(r"\end{itemize}" + "\n")
@@ -947,7 +968,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             stat_writing_vol_cm = (stat_col_width * NUM_WRITING_LINES) / 10 # mm to cm
 
             f.write(r"\begin{tikzpicture}[remember picture, overlay]" + "\n")
-            f.write(rf"  \node[anchor=south, yshift={TARGET_MARGIN_BOTTOM}mm] at (current page.south) {{" + "\n")
+            f.write(rf"  \node[anchor=south west, xshift={TARGET_MARGIN_INNER}mm, yshift={TARGET_MARGIN_BOTTOM}mm] at (current page.south west) {{" + "\n")
             f.write(r"    \begin{minipage}{\textwidth}" + "\n") # Full width
             f.write(r"      \centering \ttfamily \scriptsize" + "\n") # Monospaced, scriptsize
             f.write(r"      \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} l l l l @{}}" + "\n")
@@ -1034,7 +1055,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     dt = datetime.datetime.strptime(item['date'], "%Y-%m-%d")
                     m = dt.month
                     d = dt.day
-                    name = item['name'].replace("&", r"\&")
+                    name = f"{item['name'].replace('&', r'\&')} ({dt.year})"
                     
                     icon = ""
                     if whimsy:
@@ -1102,6 +1123,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     # Minipage for content
                     f.write(rf"\node[anchor=north west, inner sep=2mm] at ({x}, {y - 8}) {{" + "\n")
                     f.write(rf"  \begin{{minipage}}[t][{text_h}mm][t]{{{text_w}mm}}" + "\n")
+                    f.write(r"  \hfuzz=100pt \hbadness=10000" + "\n")
                     
                     if month_events[m_idx]:
                         # Use direct boxes (makebox) instead of tabular to guarantee single-line behavior (no wrapping).
@@ -1293,10 +1315,12 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     # Separator between columns
                     if col_idx > 0:
                         f.write(r"\hfill") # No newline to prevent space insertion
+                    else:
+                        f.write(r"\noindent") 
 
                     # Start Column Minipage
-                    f.write(r"\noindent")
-                    f.write(rf"\begin{{minipage}}[t]{{{COL_WIDTH}mm}}" + "\n")
+                    f.write(rf"\begin{{minipage}}[t]{{{COL_WIDTH}mm}}%" + "\n")
+                    f.write(r"\hfuzz=100pt \hbadness=10000" + "\n")
                     f.write(r"\setlength{\parindent}{0pt}" + "\n")
 
                     # Determine Content for this Column
@@ -1328,7 +1352,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                             align_right = False
 
                         # --- HEADER LOGIC ---
-                        f.write(rf"\begin{{minipage}}[t][{HEADER_H}mm]{{\textwidth}}")
+                        f.write(rf"\begin{{minipage}}[t][{HEADER_H}mm]{{\textwidth}}\hfuzz=100pt\hbadness=10000\relax ")
 
                         # Determine content parts
                         day_str = rf"\huge \textbf{{{day}}}"
@@ -1437,10 +1461,10 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                                     align_txt = "left"
 
                                 # Year Node (Line 1 space)
-                                f.write(rf"\node[anchor={anchor}, text width={YEAR_LABEL_WIDTH}mm, align={align_txt}, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at ({x_pos},{year_y}) {{{font_year} \textbf{{{label_year}}}}};" + "\n")
+                                f.write(rf"\node[anchor={anchor}, align={align_txt}, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at ({x_pos},{year_y}) {{{font_year} \textbf{{{label_year}}}}};" + "\n")
                                 
                                 # Day Node (Line 2 space)
-                                f.write(rf"\node[anchor={anchor}, text width={YEAR_LABEL_WIDTH}mm, align={align_txt}, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at ({x_pos},{day_y}) {{{font_day} \color{{{day_color}}} {label_day}}};" + "\n")
+                                f.write(rf"\node[anchor={anchor}, align={align_txt}, inner sep=0pt, yshift={LABEL_Y_SHIFT}mm] at ({x_pos},{day_y}) {{{font_day} \color{{{day_color}}} {label_day}}};" + "\n")
 
                             # Top Border (First block only)
                             if y_idx == 0:
@@ -1510,7 +1534,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 draw_edge_index(month)
 
                 # End of Page Chunk
-                f.write(r"\newpage" + "\n")
+                f.write(r"\newpage%" + "\n")
                 physical_page_count += 1
                 page_num += 1
 
@@ -1576,7 +1600,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                     f.write(r"\label{sec:extra_pages}" + "\n")
 
                 # --- HEADER ---
-                f.write(rf"\begin{{minipage}}[t][{HEADER_H}mm]{{\textwidth}}")
+                f.write(rf"\begin{{minipage}}[t][{HEADER_H}mm]{{\textwidth}}\hfuzz=100pt\hbadness=10000\relax ")
                 
                 header_text = r"\huge \textbf{Extra Pages}"
                 
@@ -1595,11 +1619,13 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                 f.write(rf"\vspace{{{line_spacing}mm}}" + "\n")
 
                 # --- COLUMNS ---
+                f.write(r"\noindent" + "\n")
                 for col in range(2):
                     if col > 0:
-                        f.write(r"\hfill" + "\n")
+                        f.write(r"\hfill") # no newline
                         
-                    f.write(rf"\begin{{minipage}}[t]{{{EXTRA_COL_WIDTH}mm}}" + "\n")
+                    f.write(rf"\begin{{minipage}}[t]{{{EXTRA_COL_WIDTH}mm}}%" + "\n")
+                    f.write(r"\hfuzz=100pt \hbadness=10000" + "\n")
                     
                     # TikZ for lines
                     f.write(rf"\begin{{tikzpicture}}[x=1mm, y=1mm]" + "\n")
@@ -1622,7 +1648,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
                              f.write(rf"\draw[guidegray, dash pattern=on 0.5pt off 1pt] (0, {y_pos}) -- ({EXTRA_COL_WIDTH}, {y_pos});" + "\n")
 
                     f.write(r"\end{tikzpicture}" + "\n")
-                    f.write(r"\end{minipage}" + "\n")
+                    f.write(r"\end{minipage}") # no newline to avoid space insertion
 
                 f.write(r"\newpage" + "\n")
                 physical_page_count += 1
@@ -1665,8 +1691,8 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             f.write(r"  rulecolor=\color{lightgray}" + "\n")
             f.write(r"}" + "\n")
             
-            # 3 Columns
-            f.write(r"\begin{multicols}{3}" + "\n")
+            # 3 Columns (Unbalanced to prevent LaTeX memory overflow on huge files)
+            f.write(r"\begin{multicols*}{3}" + "\n")
             f.write(r"\begin{lstlisting}" + "\n")
             
             # Read and write the source code of this file
@@ -1687,7 +1713,7 @@ def generate_tex(test_mode=False, spread_mode="2up", align_mode="mirrored", no_c
             
             # Safe way to write the end tag without breaking the listing
             f.write(r"\end{lst" + "listing}" + "\n")
-            f.write(r"\end{multicols}" + "\n")
+            f.write(r"\end{multicols*}" + "\n")
             f.write(r"\end{landscape}" + "\n")
             
         f.write(r"\end{CJK*}" + "\n")
